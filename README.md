@@ -7,17 +7,75 @@ Page Object Model + Self-Healing Locator + OpenAI 기반 자동 복구를 지원
 
 ## 목차
 
-1. [아키텍처](#아키텍처)
-2. [설치](#설치)
-3. [실행](#실행)
-4. [Fixture](#fixture)
-5. [Locator 관리](#locator-관리)
-6. [Self-Healing](#self-healing)
-7. [validate_locators](#validate_locators)
-8. [실패 대응](#실패-대응)
-9. [리포트 및 알림](#리포트-및-알림)
-10. [새 페이지 추가](#새-페이지-추가)
-11. [향후 개선 계획](#향후-개선-계획)
+1. [흐름도](#흐름도)
+2. [아키텍처](#아키텍처)
+3. [설치](#설치)
+4. [실행](#실행)
+5. [Fixture](#fixture)
+6. [Locator 관리](#locator-관리)
+7. [Self-Healing](#self-healing)
+8. [validate_locators](#validate_locators)
+9. [실패 대응](#실패-대응)
+10. [리포트 및 알림](#리포트-및-알림)
+11. [새 페이지 추가](#새-페이지-추가)
+12. [향후 개선 계획](#향후-개선-계획)
+
+---
+
+## 흐름도
+
+### 전체 테스트 실행 흐름
+
+```mermaid
+flowchart TD
+    A([pytest 실행]) --> B[pytest_configure]
+    B --> C{validate_locators\n정합성 검증}
+    C -- 실패 --> D([테스트 중단])
+    C -- 통과 --> E[.heal_count.json 리셋]
+    E --> F[fixture: env_config\n환경·플랫폼·headless 로드]
+    F --> G{플랫폼}
+    G -- PC --> H[Chromium\n1920×1080]
+    G -- Mobile --> I[Chromium\niPhone 13 에뮬레이션]
+    H & I --> J[Trace 시작]
+    J --> K[tests/ 실행]
+    K --> L[Page Object\nscripts/]
+    L --> M[get_locator\nbase_page.py]
+    M --> N{결과}
+    N -- 통과 --> O[pytest assert]
+    N -- 실패 --> P[스크린샷 저장\nreports/screenshots/]
+    O & P --> Q[Trace 저장\nreports/traces/]
+    Q --> R[pytest_terminal_summary]
+    R --> S{TEAMS_WEBHOOK_URL}
+    S -- 있음 --> T[Teams 알림 전송]
+    S -- 없음 --> U([종료])
+    T --> U
+```
+
+### Locator 탐색 및 Self-Healing 흐름
+
+```mermaid
+flowchart TD
+    A([get_locator 호출]) --> B[primary selector 시도\ntimeout: 5s]
+    B -- 성공 --> C([locator 반환])
+    B -- 실패 --> D{fallback 존재?}
+    D -- 없음 --> E([Exception])
+    D -- 있음 --> F[fallback 순차 시도\ntimeout: 3s each]
+    F -- 성공 --> G{OPENAI_API_KEY\n설정됨?}
+    F -- 모두 실패 --> E
+    G -- 없음 --> C
+    G -- 있음 --> H{heal_count\n< 3회?}
+    H -- 초과 --> I[경고 출력\n수동 확인 필요]
+    I --> C
+    H -- 미달 --> J[DOM 컨텍스트 추출\nform→main→body 4000자]
+    J --> K[OpenAI gpt-4o-mini\n새 primary 후보 요청]
+    K --> L[토큰 사용량 로그 출력]
+    L --> M[후보 selector 순차 검증]
+    M -- 성공 --> N[locators.json 업데이트\nhealed: true\nheal_count +1]
+    M -- 모두 실패 --> O[heal_count +1]
+    O --> C
+    N --> P[_reload_locators\nin-memory 즉시 반영]
+    P --> C
+```
 
 ---
 

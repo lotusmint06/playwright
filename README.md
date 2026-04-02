@@ -28,53 +28,55 @@ Page Object Model + Self-Healing Locator + OpenAI 기반 자동 복구를 지원
 
 ```mermaid
 flowchart TD
-    A([pytest 실행]) --> B[pytest_configure]
-    B --> C{validate_locators\n정합성 검증}
-    C -- 실패 --> D([테스트 중단])
-    C -- 통과 --> E[.heal_count.json 리셋]
-    E --> F[fixture: env_config\n환경·플랫폼·headless 로드]
-    F --> G{플랫폼}
-    G -- PC --> H[Chromium\n1920×1080]
-    G -- Mobile --> I[Chromium\niPhone 13 에뮬레이션]
-    H & I --> J[Trace 시작]
-    J --> K[tests/ 실행]
-    K --> L[Page Object\nscripts/]
-    L --> M[get_locator\nbase_page.py]
-    M --> N{결과}
-    N -- 통과 --> O[pytest assert]
-    N -- 실패 --> P[스크린샷 저장\nreports/screenshots/]
-    O & P --> Q[Trace 저장\nreports/traces/]
-    Q --> R[pytest_terminal_summary]
-    R --> S{TEAMS_WEBHOOK_URL}
-    S -- 있음 --> T[Teams 알림 전송]
-    S -- 없음 --> U([종료])
-    T --> U
+    start([pytest 실행]) --> configure[pytest_configure]
+    configure --> validate{validate_locators 정합성 검증}
+    validate -- 실패 --> abort([테스트 중단])
+    validate -- 통과 --> healreset[heal_count.json 리셋]
+    healreset --> envfix[fixture: env_config 로드]
+    envfix --> platform{플랫폼}
+    platform -- PC --> pc[Chromium 1920x1080]
+    platform -- Mobile --> mo[Chromium iPhone 13]
+    pc --> tracestart[Trace 시작]
+    mo --> tracestart
+    tracestart --> testrun[tests/ 실행]
+    testrun --> pageobj[Page Object: scripts/]
+    pageobj --> locator[get_locator: base_page.py]
+    locator --> result{테스트 결과}
+    result -- 통과 --> assertion[pytest assert]
+    result -- 실패 --> screenshot[스크린샷 저장: reports/screenshots/]
+    assertion --> traceend[Trace 저장: reports/traces/]
+    screenshot --> traceend
+    traceend --> summary[pytest_terminal_summary]
+    summary --> webhook{TEAMS_WEBHOOK_URL 설정?}
+    webhook -- 있음 --> teams[Teams 알림 전송]
+    webhook -- 없음 --> done([종료])
+    teams --> done
 ```
 
 ### Locator 탐색 및 Self-Healing 흐름
 
 ```mermaid
 flowchart TD
-    A([get_locator 호출]) --> B[primary selector 시도\ntimeout: 5s]
-    B -- 성공 --> C([locator 반환])
-    B -- 실패 --> D{fallback 존재?}
-    D -- 없음 --> E([Exception])
-    D -- 있음 --> F[fallback 순차 시도\ntimeout: 3s each]
-    F -- 성공 --> G{OPENAI_API_KEY\n설정됨?}
-    F -- 모두 실패 --> E
-    G -- 없음 --> C
-    G -- 있음 --> H{heal_count\n< 3회?}
-    H -- 초과 --> I[경고 출력\n수동 확인 필요]
-    I --> C
-    H -- 미달 --> J[DOM 컨텍스트 추출\nform→main→body 4000자]
-    J --> K[OpenAI gpt-4o-mini\n새 primary 후보 요청]
-    K --> L[토큰 사용량 로그 출력]
-    L --> M[후보 selector 순차 검증]
-    M -- 성공 --> N[locators.json 업데이트\nhealed: true\nheal_count +1]
-    M -- 모두 실패 --> O[heal_count +1]
-    O --> C
-    N --> P[_reload_locators\nin-memory 즉시 반영]
-    P --> C
+    start([get_locator 호출]) --> primary[primary selector 시도 timeout 5s]
+    primary -- 성공 --> ret([locator 반환])
+    primary -- 실패 --> hasfallback{fallback 존재?}
+    hasfallback -- 없음 --> err([Exception])
+    hasfallback -- 있음 --> fallback[fallback 순차 시도 timeout 3s]
+    fallback -- 성공 --> haskey{OPENAI_API_KEY 설정?}
+    fallback -- 모두 실패 --> err
+    haskey -- 없음 --> ret
+    haskey -- 있음 --> countcheck{heal_count 3회 미만?}
+    countcheck -- 초과 --> warn[경고 출력: 수동 확인 필요]
+    warn --> ret
+    countcheck -- 미달 --> dom[DOM 컨텍스트 추출 form→main→body 4000자]
+    dom --> openai[OpenAI gpt-4o-mini 새 primary 후보 요청]
+    openai --> tokenlog[토큰 사용량 로그 출력]
+    tokenlog --> candidates[후보 selector 순차 검증]
+    candidates -- 성공 --> update[locators.json 업데이트 healed: true / heal_count +1]
+    candidates -- 모두 실패 --> countup[heal_count +1]
+    countup --> ret
+    update --> reload[_reload_locators in-memory 즉시 반영]
+    reload --> ret
 ```
 
 ---

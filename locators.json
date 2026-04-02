@@ -1,0 +1,118 @@
+{
+  "common": {
+    "by_text": {
+      "primary": "text={value}",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "by_role_button": {
+      "primary": "role=button[name={value}]",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    }
+  },
+  "login": {
+    "email_input": {
+      "primary": "#input01",
+      "fallback": [
+        "role=textbox[name=\"아이디(이메일계정)\"]",
+        "role=textbox[name=\"아이디를 입력해 주세요\"]",
+        "[placeholder=\"hana@hanatour.com\"]"
+      ],
+      "previous": null,
+      "healed": false
+    },
+    "password_input": {
+      "primary": "#input02",
+      "fallback": [
+        "role=textbox[name=\"비밀번호\"]",
+        "input[type=\"password\"]"
+      ],
+      "previous": null,
+      "healed": false
+    },
+    "submit_btn": {
+      "primary": "role=button[name='로그인']",
+      "fallback": [
+        "button.btn.em.big",
+        ".btn_wrap.mt16 button"
+      ],
+      "previous": null,
+      "healed": false
+    },
+    "save_id_checkbox": {
+      "primary": "text=아이디 저장",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "find_id_btn": {
+      "primary": "role=button[name='아이디 찾기']",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "find_password_btn": {
+      "primary": "role=button[name='비밀번호 찾기']",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "naver_login_btn": {
+      "primary": "role=button[name='naver']",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "kakao_login_btn": {
+      "primary": "role=button[name='kakao']",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "apple_login_btn": {
+      "primary": "role=button[name='apple']",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "signup_btn": {
+      "primary": "role=button[name='통합 회원 가입하기']",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "non_member_btn": {
+      "primary": "role=button[name='비회원 예약조회']",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "error_id": {
+      "primary": ".error_id",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "error_pw": {
+      "primary": ".error_pw",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "error_popup": {
+      "primary": ".pop_tit",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "error_popup_confirm": {
+      "primary": ".layer_body_btn button",
+      "fallback": "role=button[name='확인']",
+      "previous": null,
+      "healed": false
+    }
+  }
+}

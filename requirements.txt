@@ -1,0 +1,8 @@
+playwright
+pytest
+pytest-playwright
+pytest-html
+pytest-xdist
+openai
+requests
+allure-pytest

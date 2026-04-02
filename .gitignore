@@ -137,7 +137,7 @@ celerybeat.pid
 # Environments
 .env
 .envrc
-.venv
+.venv/
 env/
 venv/
 ENV/
@@ -205,3 +205,18 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Playwright
+reports/
+allure-results/
+test-results/
+playwright-report/
+
+# Self-healing
+.heal_count.json
+
+# Playwright MCP (로컬 세션 로그/스냅샷)
+.playwright-mcp/
+
+# Claude Code 로컬 설정
+.claude/

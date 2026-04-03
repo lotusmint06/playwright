@@ -56,17 +56,21 @@ class BasePage:
                 locator = self._build_locator(fb, value)
                 locator.wait_for(timeout=3000)
                 print(f"[Locator] {section}.{key}: fallback 성공 → '{fb}'")
+            except Exception as e:
+                print(f"[Locator] {section}.{key}: fallback 실패 → '{fb}' / {e}")
+                continue
 
-                # 3. OPENAI_API_KEY 있으면 새 primary 제안 요청
-                if os.getenv("OPENAI_API_KEY"):
+            # 3. OPENAI_API_KEY 있으면 새 primary 제안 요청 (locator 탐색과 분리)
+            if os.getenv("OPENAI_API_KEY"):
+                try:
                     from self_healing import try_heal_primary
                     healed = try_heal_primary(self.page, section, key, primary, fb)
                     if healed:
                         self._reload_locators()
+                except Exception as heal_e:
+                    print(f"[Locator] {section}.{key}: self-healing 실패 / {heal_e}")
 
-                return locator
-            except Exception as e:
-                print(f"[Locator] {section}.{key}: fallback 실패 → '{fb}' / {e}")
+            return locator
 
         if not fallbacks:
             print(f"[Locator] {section}.{key}: fallback 없음")
@@ -78,6 +82,7 @@ class BasePage:
 
     def click(self, section: str, key: str, value: str = None):
         self.get_locator(section, key, value).click()
+        self.page.wait_for_load_state("networkidle")
 
     def fill(self, section: str, key: str, text: str):
         self.get_locator(section, key).fill(text)

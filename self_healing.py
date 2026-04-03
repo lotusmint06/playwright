@@ -64,7 +64,11 @@ def heal_locator(page, section: str, key: str, failed_selector: str) -> list[str
                     f"찾으려는 요소: {section} 섹션의 {key}\n\n"
                     f"현재 DOM:\n{element_context}\n\n"
                     "Playwright에서 사용 가능한 selector를 안정성 순으로 3개 제안해주세요.\n"
-                    "get_by_role, get_by_text, css 순으로 우선합니다.\n"
+                    "우선순위: #id > role=button[name=...] > role=textbox[name=...] > css(정적 class) 순으로 우선합니다.\n"
+                    "#id가 존재하면 반드시 첫 번째 후보로 제안하세요.\n"
+                    "data-v-*, data-v6-, data-* 등 빌드 툴이 자동 생성하는 속성은 절대 사용하지 마세요.\n"
+                    "disable, active, focus, hover, selected, checked 등 상태에 따라 동적으로 변하는 class는 포함하지 마세요.\n"
+                    "selector 문법: role=button[name='텍스트'], #id, .static-class (css= prefix 사용 금지)\n"
                     '응답 형식: {"selectors": ["...", "...", "..."]}'
                 )
             }
@@ -76,13 +80,22 @@ def heal_locator(page, section: str, key: str, failed_selector: str) -> list[str
     return result.get("selectors", [])
 
 
-def _update_locator_json(section: str, key: str, new_selector: str, old_selector: str):
+def _update_locator_json(section: str, key: str, new_selector: str, old_selector: str, extra_fallbacks: list[str] = None):
     with open("locators.json", encoding="utf-8") as f:
         locators = json.load(f)
 
-    locators[section][key]["previous"] = old_selector
-    locators[section][key]["primary"] = new_selector
-    locators[section][key]["healed"] = True
+    entry = locators[section][key]
+    entry["previous"] = old_selector
+    entry["primary"] = new_selector
+    entry["healed"] = True
+
+    if extra_fallbacks:
+        existing = entry.get("fallback") or []
+        if isinstance(existing, str):
+            existing = [existing]
+        # 새 후보를 앞에 추가하되 이미 있는 것과 new_selector 중복 제거
+        merged = extra_fallbacks + [f for f in existing if f not in extra_fallbacks and f != new_selector]
+        entry["fallback"] = merged
 
     with open("locators.json", "w", encoding="utf-8") as f:
         json.dump(locators, f, ensure_ascii=False, indent=2)
@@ -129,11 +142,14 @@ def try_heal_primary(page, section: str, key: str, failed_primary: str, fallback
                     f"찾으려는 요소: {section} 섹션의 {key}\n\n"
                     f"현재 DOM:\n{element_context}\n\n"
                     "DOM에서 이 요소에 적합한 안정적인 Playwright selector를 찾아 새 primary로 제안해주세요.\n"
-                    "우선순위: role=button[name=...] > role=textbox[name=...] > #id > data-* > css class 순으로 우선합니다.\n"
-                    "버튼이나 링크처럼 텍스트가 있는 요소는 반드시 role 기반 selector를 첫 번째로 제안하세요.\n"
-                    "주의: disable, active, focus, hover, selected, checked 등 상태에 따라 동적으로 변하는 class는 포함하지 마세요.\n"
+                    "fallback selector는 참고용이며, 더 안정적인 새 selector를 DOM에서 직접 찾아야 합니다.\n"
+                    "우선순위: #id > role=button[name=...] > role=textbox[name=...] > css(정적 class) 순으로 우선합니다.\n"
+                    "#id가 존재하면 반드시 첫 번째 후보로 제안하세요.\n"
+                    "data-v-*, data-v6-, data-* 등 빌드 툴이 자동 생성하는 속성은 절대 사용하지 마세요.\n"
+                    "disable, active, focus, hover, selected, checked 등 상태에 따라 동적으로 변하는 class는 포함하지 마세요.\n"
+                    "selector 문법: role=button[name='텍스트'], #id, .static-class (css= prefix 사용 금지)\n"
                     f"아래 selector는 이미 다른 요소에 사용 중이므로 제안하지 마세요:\n{used_selectors}\n\n"
-                    '응답 형식: {"selectors": ["#new-id", "css=...", "..."]}'
+                    '응답 형식: {"selectors": ["#new-id", "role=...", "..."]}'
                 )
             }
         ],
@@ -150,12 +166,13 @@ def try_heal_primary(page, section: str, key: str, failed_primary: str, fallback
 
     candidates = json.loads(response.choices[0].message.content).get("selectors", [])
 
-    for candidate in candidates:
+    for i, candidate in enumerate(candidates):
         try:
             locator = page.locator(candidate)
             locator.wait_for(timeout=2000)
 
-            _update_locator_json(section, key, candidate, failed_primary)
+            extra_fallbacks = [c for c in candidates[i + 1:] if c != candidate]
+            _update_locator_json(section, key, candidate, failed_primary, extra_fallbacks)
             counts[full_key] = counts.get(full_key, 0) + 1
             _save_heal_counts(counts)
 
@@ -188,12 +205,13 @@ def try_heal(page, section: str, key: str, failed_selector: str):
     print(f"[Self-Healing] {full_key} 실패 → OpenAI로 healing 시도")
     candidates = heal_locator(page, section, key, failed_selector)
 
-    for candidate in candidates:
+    for i, candidate in enumerate(candidates):
         try:
             locator = page.locator(candidate)
             locator.wait_for(timeout=2000)
 
-            _update_locator_json(section, key, candidate, failed_selector)
+            extra_fallbacks = [c for c in candidates[i + 1:] if c != candidate]
+            _update_locator_json(section, key, candidate, failed_selector, extra_fallbacks)
             counts[full_key] = counts.get(full_key, 0) + 1
             _save_heal_counts(counts)
 

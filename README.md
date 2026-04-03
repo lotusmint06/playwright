@@ -214,11 +214,13 @@ def test_after_login(session_page):
 ### Selector 우선순위
 
 ```
-role=button[name=...] > role=textbox[name=...] > #id > data-* > css class
+#id > role=button[name=...] > role=textbox[name=...] > css(정적 class)
 ```
 
+- `#id`가 존재하면 최우선 사용 (가장 안정적)
 - 버튼/링크처럼 텍스트가 있는 요소는 `role=` 기반 selector 우선
-- `disable`, `active`, `focus`, `hover` 등 **동적 class는 사용하지 않음**
+- `data-v-*` 등 **빌드 툴이 자동 생성하는 속성은 사용하지 않음** (빌드마다 해시값 변경)
+- `disable`, `active`, `focus`, `hover` 등 **상태에 따라 변하는 동적 class는 사용하지 않음**
 
 ### 동적 텍스트 — `{value}` 플레이스홀더
 
@@ -251,9 +253,31 @@ primary 시도 (5초 timeout)
 
 1. `primary` selector 실패 → `fallback` selector로 요소 확보
 2. 현재 DOM(`form > main > body` 순서로 최대 4000자) 추출
-3. OpenAI(gpt-4o-mini)에 새 `primary` 후보 요청
-4. 후보를 순서대로 검증 → 성공한 selector를 `locators.json`에 자동 저장
-5. `healed: true` 플래그 기록 + in-memory locator 즉시 리로드
+3. OpenAI(gpt-4o-mini)에 새 selector 후보 3개 요청
+4. 후보를 순서대로 검증 → 첫 번째로 동작하는 selector를 새 `primary`로 저장
+5. 나머지 후보는 `fallback` 배열 앞에 추가 (기존 fallback은 뒤에 유지, 중복 제거)
+6. `healed: true` 플래그 기록 + in-memory locator 즉시 리로드
+
+**healing 후 locators.json 변화 예시**
+
+```json
+// 전: primary 깨진 상태
+{
+  "primary": "#input03",
+  "fallback": ["role=textbox[name='아이디(이메일계정)']"]
+}
+
+// 후: OpenAI가 ["#input01", "role=textbox[name='아이디를 입력해 주세요']"] 제안
+{
+  "primary": "#input01",
+  "fallback": [
+    "role=textbox[name='아이디를 입력해 주세요']",  // OpenAI 나머지 후보 (앞에 추가)
+    "role=textbox[name='아이디(이메일계정)']"        // 기존 fallback 유지
+  ],
+  "previous": "#input03",
+  "healed": true
+}
+```
 
 ### 제한
 

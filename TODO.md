@@ -1,5 +1,18 @@
 # TODO
 
+## 목차
+
+1. [현황 평가](#현황-평가-100점-만점)
+2. [Self-Healing 접근법에 대한 고려사항](#self-healing-접근법에-대한-고려사항)
+3. [우선순위별 작업 목록](#우선순위별-작업-목록)
+   - 🔴 [즉시] is_visible 버그 / 버전 고정 / pytest-playwright 충돌
+   - 🟡 [단기] click 구분 / race condition / dead code
+   - 🟢 [장기] env 분리 / DOM adaptive / regex 개선 / 테스트 커버리지
+4. [AI 기반 자율 테스트 실행 (LLM-driven Test Agent)](#ai-기반-자율-테스트-실행-llm-driven-test-agent)
+5. [Locator 사전 생성 도구 (generate_locator)](#locator-사전-생성-도구-generate_locator)
+6. [Appium 확장 가능성](#appium-확장-가능성)
+7. [Self-Healing DOM Context 최적화](#self-healing-dom-context-최적화)
+
 ---
 
 ## 현황 평가 (100점 만점)
@@ -123,6 +136,79 @@
   - 네이버/카카오/애플 소셜 로그인 버튼 동작 확인
   - 아이디 저장 체크박스 동작
   - 빈 필드 제출 시 에러 메시지 텍스트 검증
+
+---
+
+## AI 기반 자율 테스트 실행 (LLM-driven Test Agent)
+
+locators.json에 description을 추가하고 BasePage 메서드를 LLM tool로 노출해,
+자연어 테스트 케이스를 LLM이 직접 실행하는 구조.
+
+### 개념 구조
+
+```
+locators.json (description 추가)
+    +
+BasePage 메서드 → LLM tools로 노출
+    +
+자연어 테스트 케이스 입력
+    ↓
+LLM이 tools 호출하면서 테스트 실행
+```
+
+### locators.json 확장 방향
+```json
+{
+  "login": {
+    "email_input": {
+      "primary": "#input03",
+      "fallback": ["..."],
+      "description": "이메일 입력 필드"
+    },
+    "submit_btn": {
+      "primary": "#btnLogin",
+      "description": "로그인 버튼 — 클릭 시 인증 시도"
+    }
+  }
+}
+```
+
+### Tools 노출 예시
+```python
+tools = [
+  {"name": "click",      "description": "요소 클릭", ...},
+  {"name": "fill",       "description": "텍스트 입력", ...},
+  {"name": "is_visible", "description": "요소 표시 여부 확인", ...},
+  {"name": "assert_url", "description": "현재 URL 검증", ...}
+]
+```
+
+### 잘 되는 영역
+- **탐색적 테스트** — "이 페이지에서 뭔가 이상한 거 찾아봐"
+- **테스트 코드 생성** — 자연어 → pytest 코드 자동 작성 후 결정적 실행
+- **신규 페이지 빠른 커버리지** — description만 잘 써있으면 LLM이 흐름 파악 가능
+
+### 한계
+
+| 문제 | 이유 |
+|---|---|
+| 비결정적 실행 | 같은 입력도 LLM 응답이 매번 다를 수 있음 |
+| assertion 신뢰성 | LLM이 "통과"라고 판단해도 실제 버그일 수 있음 |
+| 속도/비용 | 스텝마다 API 호출 → 느리고 비쌈 |
+| 디버깅 어려움 | 왜 그 tool을 선택했는지 추적 힘듦 |
+
+### 권장 hybrid 접근
+LLM을 런타임 실행자가 아닌 **코드 생성기**로 사용:
+```
+자연어 → LLM → pytest 코드 생성 (1회)
+                    ↓
+            이후는 코드가 결정적으로 실행
+```
+
+### 유사 프로젝트 참고
+- **Browser Use** — Python, LLM + Playwright 조합으로 거의 이 개념 그대로 구현
+- **Stagehand** (Browserbase) — 같은 방향, JS 생태계
+- **Playwright MCP** — Claude가 직접 브라우저 조작
 
 ---
 

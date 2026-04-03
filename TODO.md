@@ -126,6 +126,49 @@
 
 ---
 
+## Locator 사전 생성 도구 (generate_locator)
+
+테스트 실패를 기다리지 않고, **사전에 능동적으로** 선택자를 생성해 locators.json에 등록하는 도구.
+기존 `self_healing.py`의 `heal_locator()`, `_update_locator_json()`을 재사용하므로 추가 코드가 적음.
+
+### 사용 방식
+
+```bash
+# URL 직접 접속 → Playwright로 DOM 추출 → 선택자 생성
+python generate_locator.py --section login --key email_input --url https://accounts.hanatour.com
+
+# DOM 직접 붙여넣기 (브라우저 없이)
+python generate_locator.py --section login --key email_input --dom "<form>...</form>"
+```
+
+### 내부 흐름
+
+```
+URL 입력 → Playwright로 페이지 열기 → DOM 추출
+DOM 입력 → 그대로 사용
+    ↓
+heal_locator() 호출 (기존 코드 재사용)
+    ↓
+1,2,3순위 후보 순서대로 page.locator().wait_for() 시도
+    ↓
+성공한 것 → primary, 나머지 → fallback으로 locators.json 업데이트
+```
+
+### 구현 방식 비교
+
+| | CLI 스크립트 | Playwright MCP |
+|---|---|---|
+| 구현 난이도 | 낮음 (기존 코드 재사용) | 중간 (MCP 서버 설정 필요) |
+| 사용 편의성 | 터미널 명령어 | 대화형 (Claude와 직접 대화) |
+| 브라우저 필요 | 선택 (URL or DOM 중 택1) | 항상 필요 |
+| 우선 구현 | ✅ | 추후 검토 |
+
+### 관련 파일
+- `self_healing.py` — `heal_locator()`, `_update_locator_json()` 재사용
+- `generate_locator.py` — 신규 작성 (진입점만 추가)
+
+---
+
 ## Appium 확장 가능성
 
 이 프레임워크의 핵심 개념(locators.json + primary/fallback + AI healing)은 Appium 모바일 테스트에도 적용 가능.

@@ -61,6 +61,8 @@ class BasePage:
                 continue
 
             # 3. OPENAI_API_KEY 있으면 새 primary 제안 요청 (locator 탐색과 분리)
+            if not os.getenv("OPENAI_API_KEY"):
+                print(f"[Locator] {section}.{key}: OPENAI_API_KEY 없음 → self-healing 건너뜀")
             if os.getenv("OPENAI_API_KEY"):
                 try:
                     from self_healing import try_heal_primary

@@ -15,13 +15,12 @@
   },
   "login": {
     "email_input": {
-      "primary": "role=textbox[name='아이디를 입력해 주세요']",
+      "primary": "#input01",
       "fallback": [
-        "role=textbox[name=\"아이디(이메일계정)\"]",
-        "role=textbox[name=\"아이디를 입력해 주세요\"]",
-        "[placeholder=\"hana@hanatour.com\"]"
+        "role=textbox[name='아이디(이메일계정)']",
+        "input[type='email']"
       ],
-      "previous": "role=textbox[name='아이디(이메일계정)']",
+      "previous": "#input05",
       "healed": true
     },
     "password_input": {

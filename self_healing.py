@@ -63,7 +63,7 @@ def heal_locator(page, section: str, key: str, failed_selector: str) -> list[str
                     f"다음 Playwright selector가 실패했습니다: {failed_selector}\n"
                     f"찾으려는 요소: {section} 섹션의 {key}\n\n"
                     f"현재 DOM:\n{element_context}\n\n"
-                    "Playwright에서 사용 가능한 selector를 안정성 순으로 3개 제안해주세요.\n"
+                    "Playwright에서 사용 가능한 selector를 안정성 순으로 최대 3개 제안해주세요. 확실하지 않은 selector는 포함하지 마세요.\n"
                     "우선순위: #id > role=button[name=...] > role=textbox[name=...] > css(정적 class) 순으로 우선합니다.\n"
                     "#id가 존재하면 반드시 첫 번째 후보로 제안하세요.\n"
                     "data-v-*, data-v6-, data-* 등 빌드 툴이 자동 생성하는 속성은 절대 사용하지 마세요.\n"
@@ -93,9 +93,12 @@ def _update_locator_json(section: str, key: str, new_selector: str, old_selector
         existing = entry.get("fallback") or []
         if isinstance(existing, str):
             existing = [existing]
-        # 새 후보를 앞에 추가하되 이미 있는 것과 new_selector 중복 제거
-        merged = extra_fallbacks + [f for f in existing if f not in extra_fallbacks and f != new_selector]
+        # extra_fallbacks 내부 중복 제거 후 기존 fallback과 합치기
+        seen = set()
+        deduped = [f for f in extra_fallbacks if not (f in seen or seen.add(f))]
+        merged = deduped + [f for f in existing if f not in seen and f != new_selector]
         entry["fallback"] = merged
+        print(f"[Self-Healing] fallback 업데이트 → {merged}")
 
     with open("locators.json", "w", encoding="utf-8") as f:
         json.dump(locators, f, ensure_ascii=False, indent=2)
@@ -117,15 +120,21 @@ def try_heal_primary(page, section: str, key: str, failed_primary: str, fallback
     print(f"[Self-Healing] {full_key}: fallback 성공 → OpenAI로 새 primary 탐색")
     element_context = _get_element_context(page)
 
-    # 현재 locators.json에서 사용 중인 모든 primary selector 수집
+    # 전체 primary + 같은 섹션 내 fallback 수집 (다른 섹션은 같은 selector 허용)
     with open("locators.json", encoding="utf-8") as f:
         all_locators = json.load(f)
-    used_selectors = [
-        v["primary"]
-        for sec in all_locators.values()
-        for v in sec.values()
-        if isinstance(v, dict) and v.get("primary")
-    ]
+    used_selectors = []
+    for sec_name, sec in all_locators.items():
+        for v in sec.values():
+            if not isinstance(v, dict):
+                continue
+            if v.get("primary"):
+                used_selectors.append(v["primary"])
+            if sec_name == section:
+                fb = v.get("fallback") or []
+                if isinstance(fb, str):
+                    fb = [fb]
+                used_selectors.extend(fb)
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -141,7 +150,7 @@ def try_heal_primary(page, section: str, key: str, failed_primary: str, fallback
                     f"fallback으로 찾은 selector: {fallback_selector}\n"
                     f"찾으려는 요소: {section} 섹션의 {key}\n\n"
                     f"현재 DOM:\n{element_context}\n\n"
-                    "DOM에서 이 요소에 적합한 안정적인 Playwright selector를 찾아 새 primary로 제안해주세요.\n"
+                    "DOM에서 이 요소에 적합한 안정적인 Playwright selector를 반드시 3개 찾아 제안해주세요. 3개 미만은 허용하지 않습니다.\n"
                     "fallback selector는 참고용이며, 더 안정적인 새 selector를 DOM에서 직접 찾아야 합니다.\n"
                     "우선순위: #id > role=button[name=...] > role=textbox[name=...] > css(정적 class) 순으로 우선합니다.\n"
                     "#id가 존재하면 반드시 첫 번째 후보로 제안하세요.\n"
@@ -165,6 +174,9 @@ def try_heal_primary(page, section: str, key: str, failed_primary: str, fallback
     )
 
     candidates = json.loads(response.choices[0].message.content).get("selectors", [])
+
+    for i, c in enumerate(candidates, 1):
+        print(f"[Self-Healing] AI 후보 {i}순위: {c}")
 
     for i, candidate in enumerate(candidates):
         try:

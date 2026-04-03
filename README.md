@@ -72,7 +72,7 @@ flowchart TD
     dom --> openai[OpenAI gpt-4o-mini 새 primary 후보 요청]
     openai --> tokenlog[토큰 사용량 로그 출력]
     tokenlog --> candidates[후보 selector 순차 검증]
-    candidates -- 성공 --> update[locators.json 업데이트 healed: true / heal_count +1]
+    candidates -- 성공 --> update[primary 갱신 + 나머지 후보 fallback 앞에 추가 healed: true / heal_count +1]
     candidates -- 모두 실패 --> countup[heal_count +1]
     countup --> ret
     update --> reload[_reload_locators in-memory 즉시 반영]
@@ -238,7 +238,10 @@ login_page.click("common", "by_text", value="다음")
 primary 시도 (5초 timeout)
     ✅ 성공 → 반환
     ❌ 실패 → fallback[0] 시도 (3초 timeout)
-                 ✅ 성공 → self-healing으로 primary 갱신 → 반환
+                 ✅ 성공 → [OPENAI_API_KEY 있을 때] self-healing
+                 │              └─ 새 primary 갱신
+                 │              └─ 나머지 후보 → fallback 앞에 추가
+                 │          → 반환
                  ❌ 실패 → fallback[1] 시도 ...
                               ❌ 모두 실패 → Exception
 ```

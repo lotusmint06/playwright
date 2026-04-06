@@ -9,19 +9,22 @@ project/
 ├── conftest.py          # 공통 hook: 스크린샷, Teams webhook, locator 검증, pytest 옵션
 ├── env.json             # QA/Prod × PC/Mobile/Android/iOS 환경별 설정
 ├── locators.json        # 웹 페이지별 selector 중앙 관리
-├── locators_app.json    # 앱 selector 중앙 관리 (android/ios 분기)
 ├── validate_locators.py # locators.json 정합성 검증
 ├── self_healing.py      # OpenAI(gpt-4o-mini) 기반 웹 self-healing
-├── app_healing.py       # OpenAI(gpt-4o-mini) 기반 앱 self-healing
 ├── pytest.ini           # 기본 pytest 옵션
 ├── requirements.txt
 ├── tests/               # 웹 테스트 — pytest assertion만 작성 (Playwright 문법 사용 금지)
 │   └── conftest.py      # Playwright fixture: page (function), session_page (session)
 ├── tests_app/           # 앱 테스트 — pytest assertion만 작성
 │   └── conftest.py      # Appium fixture: app_driver (function)
-└── scripts/             # Playwright 액션 담당 (BasePage 상속)
-    ├── base_page.py     # 웹 공통 액션 + self-healing 연동
-    └── base_app_page.py # 앱 공통 액션 + app_healing 연동
+├── scripts/             # Playwright 액션 담당 (BasePage 상속)
+│   ├── base_page.py     # 웹 공통 액션 + self-healing 연동
+│   └── login_page.py
+├── docs/                # 설계 문서
+│   ├── dom_context_optimization.md  # Self-Healing DOM 컨텍스트 최적화
+│   └── appium_setup.md              # Appium 확장 준비 가이드
+└── tools/               # 개발/검증 도구 (pytest 수집 대상 아님)
+    └── check_context.py # DOM 컨텍스트 추출 및 OpenAI 후보 품질 검증
 ```
 
 ## 실행 명령어

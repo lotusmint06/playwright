@@ -17,15 +17,15 @@
 
 ## 현황 평가 (100점 만점)
 
-> 마지막 업데이트: 2026-04-04
+> 마지막 업데이트: 2026-04-06
 
 | 항목 | 이전 | 현재 | 평가 요약 |
 |---|---|---|---|
 | **구조** | 68 | **78** | `is_visible()` 버그 수정, conftest 3파일 분리, `click_and_navigate()` 분리 완료 |
-| **효율성** | 58 | **67** | 단순 클릭 networkidle 제거, 불필요 패키지(`pytest-playwright`) 제거 완료. DOM 고정 컷은 잔존 |
+| **효율성** | 58 | **75** | DOM 컨텍스트 최적화 완료 — 토큰 72% 절감, 오답 후보 제거. xdist race condition 잔존 |
 | **안정성** | 52 | **72** | 버전 고정, `pytest-playwright` 충돌 제거 완료. xdist race condition 미대응 잔존 |
 | **확장성** | 45 | **53** | Appium 확장 구조 문서화 및 conftest 기반 마련. URL 분리·커버리지 확대는 잔존 |
-| **종합** | **56** | **68** | 핵심 버그·안정성 이슈 해결. 남은 과제는 병렬 실행 안전성과 커버리지 확대 |
+| **종합** | **56** | **70** | DOM 최적화로 self-healing 품질 향상. 남은 과제는 병렬 실행 안전성과 커버리지 확대 |
 
 ---
 
@@ -105,11 +105,10 @@
 - **문제**: QA/Prod base_url이 동일 — `--env` 옵션이 의미 없음
 - **수정**: 실제 QA 도메인 추가
 
-#### 8. DOM 추출 adaptive sizing
-- **파일**: `self_healing.py` — `_get_element_context()`
-- **문제**: 4000자 고정 — 복잡한 페이지에서 중요 요소가 잘릴 수 있음
-- **수정**: fallback 성공 요소의 부모 3단계 HTML만 추출 → 토큰 절약 + 정확도 향상
-- *(상세 구현은 아래 Self-Healing DOM Context 최적화 섹션 참고)*
+#### 8. ~~DOM 추출 adaptive sizing~~ ✅ 완료
+- `_get_element_context()`에 `[대상 요소]` + `[주변 구조]` 분리 전달 구현
+- 토큰 72% 절감 (1,686 → 477), 오답 후보 제거 확인
+- *(상세 내용은 [docs/dom_context_optimization.md](./docs/dom_context_optimization.md) 참고)*
 
 #### 9. validate_locators regex 개선
 - **파일**: `validate_locators.py`
@@ -299,31 +298,12 @@ xpath는 텍스트 기반만 허용: //*[@text='로그인']
 
 ---
 
-## Self-Healing DOM Context 최적화
+## Self-Healing DOM Context 최적화 ✅ 완료
 
-### 배경
-현재 `self_healing.py`의 `_get_element_context()`는 `form/main/body` 순서로 컨테이너를 찾아
-최대 4000자를 OpenAI에 전송한다. 로그인 페이지처럼 단순한 페이지는 괜찮지만
-검색 결과 등 DOM이 큰 페이지에서는 토큰 낭비가 발생한다.
+설계 배경, 구현 내용, 실측 결과는 **[docs/dom_context_optimization.md](./docs/dom_context_optimization.md)** 를 참고하세요.
 
-### 개선 방향
-primary, fallback 모두 실패했을 때:
-
-```
-primary 실패 → fallback 실패
-    → page.evaluate(JS)로 실패한 요소 주변 HTML만 추출 (부모 3단계)
-        → 4000자 이내로 OpenAI 전송
-            → 새 selector 후보 받아서 순차 시도
-                → 성공하면 primary + fallback 둘 다 업데이트
-```
-
-### 구현 포인트
-- `page.evaluate(JS)`로 DOM 탐색은 브라우저(JS)가 수행, 결과값만 Python으로 반환
-- fallback selector가 있으면 그 요소의 부모 3단계 HTML만 추출
-- fallback도 없으면 title/placeholder 속성으로 관련 요소 검색 후 주변 추출
-- 최후 수단으로 form → main → body 순서 (현재 방식)
-
-### 관련 파일
-- `self_healing.py` — `_get_element_context()` 함수 개선
-- `scripts/base_page.py` — primary/fallback 모두 실패 시 `try_heal()` 호출 추가
-- `locators.json` — fallback 필드 활용
+### 요약
+- `[대상 요소]` (요소 자체 HTML) + `[주변 구조]` (부모 3단계) 분리 전달
+- 프롬프트에 "[대상 요소]의 selector만 제안" 명시 → 형제 요소 오답 제거
+- 토큰 72% 절감 (1,686 → 477), selector 후보 품질 향상 확인
+- 검증 도구: `tools/check_context.py`

@@ -31,28 +31,15 @@ def _save_heal_counts(counts: dict):
         json.dump(counts, f, ensure_ascii=False, indent=2)
 
 
-def _get_element_context(page) -> str:
-    """전체 DOM 대신 주요 컨테이너 내부만 추출해 토큰 절약"""
-    context = page.evaluate("""
-        () => {
-            const containers = ['form', 'main', '[role=main]', 'body'];
-            for (const selector of containers) {
-                const el = document.querySelector(selector);
-                if (el) return el.innerHTML;
-            }
-            return document.body.innerHTML;
-        }
-    """)
-    return context[:4000]
-
-
-def _get_element_context_v2(page, fallback_selector: str = None) -> str:
+def _get_element_context(page, fallback_selector: str = None) -> str:
     """
-    [실험적] DOM Context 최적화 버전 — 기존 _get_element_context() 대체 후보.
+    selector 생성에 필요한 HTML 컨텍스트를 추출하고 정제합니다.
 
-    우선순위:
-    1. fallback_selector 있음 → 해당 요소의 부모 3단계 outerHTML (정제)
-    2. 없음 or 실패 → form/main/body innerHTML (정제)
+    fallback_selector 있음:
+      [대상 요소] 섹션에 요소 자체 outerHTML,
+      [주변 구조] 섹션에 부모 3단계 outerHTML을 합쳐 반환.
+    fallback_selector 없음 or 실패:
+      form/main/body innerHTML (정제) 반환.
 
     정제 항목: style 속성, data-v-* 해시, script/style/svg 태그,
                이벤트 핸들러, tabindex/aria-hidden 등
@@ -99,23 +86,28 @@ def _get_element_context_v2(page, fallback_selector: str = None) -> str:
         }
     """
 
-    # 1순위: fallback 요소 기준 부모 3단계
+    # 1순위: 요소 자체 + 부모 3단계 구조를 분리 섹션으로 반환
     if fallback_selector:
         try:
-            context = page.locator(fallback_selector).evaluate(f"""
+            el_html, parent_html = page.locator(fallback_selector).evaluate(f"""
                 el => {{
+                    const elHtml = ({_CLEAN_JS})(el);
+
                     let parent = el;
                     for (let i = 0; i < 3; i++) {{
                         if (parent.parentElement) parent = parent.parentElement;
                     }}
-                    return ({_CLEAN_JS})(parent);
+                    const parentHtml = ({_CLEAN_JS})(parent);
+
+                    return [elHtml, parentHtml];
                 }}
             """)
-            if context:
-                print(f"[Context-v2] fallback 기준 부모 3단계 추출 완료 ({len(context)}자)")
+            if el_html:
+                context = f"[대상 요소]\n{el_html}\n\n[주변 구조]\n{parent_html}"
+                print(f"[Context-v2] 대상 요소({len(el_html)}자) + 주변 구조({len(parent_html)}자) 추출 완료")
                 return context[:4000]
         except Exception as e:
-            print(f"[Context-v2] 부모 3단계 추출 실패, form/main/body로 전환: {e}")
+            print(f"[Context-v2] 요소 추출 실패, form/main/body로 전환: {e}")
 
     # 2순위: form/main/body
     context = page.evaluate(f"""
@@ -204,7 +196,7 @@ def try_heal_primary(page, section: str, key: str, failed_primary: str, fallback
         return False
 
     print(f"[Self-Healing] {full_key}: fallback 성공 → OpenAI로 새 primary 탐색")
-    element_context = _get_element_context(page)
+    element_context = _get_element_context(page, fallback_selector)
 
     # 전체 primary + 같은 섹션 내 fallback 수집 (다른 섹션은 같은 selector 허용)
     with open("locators.json", encoding="utf-8") as f:
@@ -233,11 +225,11 @@ def try_heal_primary(page, section: str, key: str, failed_primary: str, fallback
                 "role": "user",
                 "content": (
                     f"기존 primary selector가 변경되었습니다: {failed_primary}\n"
-                    f"fallback으로 찾은 selector: {fallback_selector}\n"
                     f"찾으려는 요소: {section} 섹션의 {key}\n\n"
-                    f"현재 DOM:\n{element_context}\n\n"
-                    "DOM에서 이 요소에 적합한 안정적인 Playwright selector를 반드시 3개 찾아 제안해주세요. 3개 미만은 허용하지 않습니다.\n"
-                    "fallback selector는 참고용이며, 더 안정적인 새 selector를 DOM에서 직접 찾아야 합니다.\n"
+                    f"아래 DOM에서 [대상 요소]가 바로 찾으려는 요소입니다.\n"
+                    f"[대상 요소]의 selector만 제안하세요. 다른 요소의 selector는 절대 포함하지 마세요.\n\n"
+                    f"{element_context}\n\n"
+                    "위 [대상 요소]에 적합한 안정적인 Playwright selector를 반드시 3개 찾아 제안해주세요. 3개 미만은 허용하지 않습니다.\n"
                     "우선순위: #id > role=button[name=...] > role=textbox[name=...] > css(정적 class) 순으로 우선합니다.\n"
                     "#id가 존재하면 반드시 첫 번째 후보로 제안하세요.\n"
                     "data-v-*, data-v6-, data-* 등 빌드 툴이 자동 생성하는 속성은 절대 사용하지 마세요.\n"

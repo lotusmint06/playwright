@@ -68,7 +68,7 @@ flowchart TD
     haskey -- 있음 --> countcheck{heal_count 3회 미만?}
     countcheck -- 초과 --> warn[경고 출력: 수동 확인 필요]
     warn --> ret
-    countcheck -- 미달 --> dom[DOM 컨텍스트 추출 form→main→body 4000자]
+    countcheck -- 미달 --> dom[DOM 컨텍스트 추출 대상요소+주변구조 최대4000자]
     dom --> openai[OpenAI gpt-4o-mini 새 primary 후보 요청]
     openai --> tokenlog[토큰 사용량 로그 출력]
     tokenlog --> candidates[후보 selector 순차 검증]
@@ -289,8 +289,8 @@ primary 시도 (5초 timeout)
 ### 동작 방식
 
 1. `primary` selector 실패 → `fallback` selector로 요소 확보
-2. 현재 DOM(`form > main > body` 순서로 최대 4000자) 추출
-3. OpenAI(gpt-4o-mini)에 새 selector 후보 3개 요청
+2. DOM 컨텍스트 추출 — `[대상 요소]` HTML + `[주변 구조]` (부모 3단계) 분리 전달, 최대 4000자
+3. OpenAI(gpt-4o-mini)에 새 selector 후보 3개 요청 ("대상 요소의 selector만 제안" 명시)
 4. 후보를 순서대로 검증 → 첫 번째로 동작하는 selector를 새 `primary`로 저장
 5. 나머지 후보는 `fallback` 배열 앞에 추가 (기존 fallback은 뒤에 유지, 중복 제거)
 6. `healed: true` 플래그 기록 + in-memory locator 즉시 리로드
@@ -328,11 +328,11 @@ primary 시도 (5초 timeout)
 
 | 항목 | 수치 |
 |---|---|
-| input tokens | ~1,535 |
-| output tokens | ~38 |
-| 1회 비용 | $0.0003 미만 |
+| input tokens | ~477 (DOM 최적화 후, 기존 ~1,686 대비 72% 절감) |
+| output tokens | ~35 |
+| 1회 비용 | $0.0001 미만 |
 
-하루 100회 healing이 발생해도 **$0.03 이하**.  
+하루 100회 healing이 발생해도 **$0.01 이하**.  
 selector는 자주 바뀌지 않으므로 실제 비용은 훨씬 적습니다.
 
 ### 운영 가이드
@@ -480,8 +480,8 @@ def test_search_returns_results(page):
 
 | # | 항목 | 상태 | 설명 |
 |---|---|---|---|
-| 1 | DOM Context 최적화 | 미완 | fallback 요소 주변 HTML만 추출 + 불필요 속성 정제 — [dom_context_optimization.md](./dom_context_optimization.md) 참고 |
+| 1 | DOM Context 최적화 | ✅ 완료 | 대상 요소 + 주변 구조 분리 전달, 토큰 72% 절감 — [docs/dom_context_optimization.md](./docs/dom_context_optimization.md) |
 | 2 | xdist race condition 대응 | 미완 | 병렬 실행 시 locators.json 동시 쓰기 문제 해결 (filelock) |
 | 3 | Teams heal 알림 | 미완 | healing 발생 시 Teams에 요소명 + 변경 내역 별도 전송 |
-| 4 | Appium 확장 | 준비중 | `base_app_page.py`, `app_healing.py`, `locators_app.json` — [appium_setup.md](./appium_setup.md) 참고 |
+| 4 | Appium 확장 | 준비중 | `base_app_page.py`, `app_healing.py`, `locators_app.json` — [docs/appium_setup.md](./docs/appium_setup.md) |
 | 5 | 테스트 커버리지 확대 | 미완 | 소셜 로그인, 아이디 저장 체크박스, 에러 메시지 텍스트 검증 등 |

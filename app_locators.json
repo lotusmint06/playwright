@@ -7,6 +7,14 @@
       "healed": false
     }
   },
+  "food_list": {
+    "filter_chip": {
+      "primary": "uiautomator:new UiSelector().text(\"{value}\")",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    }
+  },
   "main": {
     "category_btn": {
       "primary": "accessibility_id:{value}",
@@ -55,6 +63,15 @@
       "fallback": [
         "uiautomator:new UiSelector().description(\"뒤로가기\")",
         "xpath://android.view.View[@content-desc='뒤로가기']"
+      ],
+      "previous": null,
+      "healed": false
+    },
+    "webview_back_btn": {
+      "primary": "accessibility_id:이전으로 가기",
+      "fallback": [
+        "uiautomator:new UiSelector().description(\"이전으로 가기\")",
+        "xpath://android.widget.Button[@content-desc='이전으로 가기']"
       ],
       "previous": null,
       "healed": false

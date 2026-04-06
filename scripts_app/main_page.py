@@ -18,5 +18,8 @@ class MainPage(BaseAppPage):
     def tap_jjim(self):
         self.tap("main", "jjim_btn")
 
-    def tap_back(self):
-        self.tap("main", "back_btn")
+    def tap_back(self, webview: bool = False):
+        if webview:
+            self.tap("main", "webview_back_btn")
+        else:
+            self.tap("main", "back_btn")

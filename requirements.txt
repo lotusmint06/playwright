@@ -5,3 +5,4 @@ pytest-xdist==3.8.0
 openai==2.30.0
 requests==2.33.1
 allure-pytest==2.15.3
+appium-python-client==5.3.0

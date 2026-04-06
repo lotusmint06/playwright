@@ -5,13 +5,13 @@
 1. [현황 평가](#현황-평가-100점-만점)
 2. [Self-Healing 접근법에 대한 고려사항](#self-healing-접근법에-대한-고려사항)
 3. [우선순위별 작업 목록](#우선순위별-작업-목록)
-   - 🔴 [즉시] is_visible 버그 / 버전 고정 / pytest-playwright 충돌
-   - 🟡 [단기] click 구분 / race condition / dead code
-   - 🟢 [장기] env 분리 / DOM adaptive / regex 개선 / 테스트 커버리지
-4. [AI 기반 자율 테스트 실행 (LLM-driven Test Agent)](#ai-기반-자율-테스트-실행-llm-driven-test-agent)
-5. [Locator 사전 생성 도구 (generate_locator)](#locator-사전-생성-도구-generate_locator)
-6. [Appium 확장 가능성](#appium-확장-가능성)
-7. [Self-Healing DOM Context 최적화](#self-healing-dom-context-최적화)
+   - 🟡 [단기] race condition / CI healing 비활성화
+   - 🟢 [장기] env 분리 / regex 개선 / 테스트 커버리지 / 이슈 자동 등록
+4. [AI Test Agent — 투 트랙 전략](#ai-test-agent--투-트랙-전략)
+5. [Playwright MCP 연동](#playwright-mcp-연동)
+6. [Locator 사전 생성 도구 (generate_locator)](#locator-사전-생성-도구-generate_locator)
+7. [Appium 확장 가능성](#appium-확장-가능성)
+8. [Self-Healing DOM Context 최적화 ✅ 완료](#self-healing-dom-context-최적화--완료)
 
 ---
 
@@ -90,11 +90,23 @@
 #### 5. xdist 병렬 실행 시 locators.json race condition
 - **파일**: `self_healing.py`, `scripts/base_page.py`
 - **문제**: 여러 worker가 동시에 locators.json 읽기/쓰기 시 데이터 손상 가능
-- **수정**: `filelock` 라이브러리로 쓰기 시 lock 처리, 또는 CI에서 healing 비활성화 옵션 추가
+- **수정**: `filelock` 라이브러리로 쓰기 시 lock 처리
 
 #### 6. `session_page` — 향후 활용 예정
 - **파일**: `tests/conftest.py`
 - **현황**: 로그인 상태 유지 테스트 작성 시 사용 예정으로 유지
+
+#### 11. CI healing 비활성화 옵션 (`DISABLE_HEALING`)
+- **파일**: `self_healing.py`, `conftest.py`
+- **문제**: CI 환경에서 healing이 활성화되면 비결정적 실행 + locators.json git diff 항상 발생
+- **수정**: `DISABLE_HEALING=1` 환경변수로 healing 완전 차단
+  ```bash
+  # CI에서
+  DISABLE_HEALING=1 pytest tests/
+  # 로컬에서 (healing 활성화)
+  OPENAI_API_KEY=sk-... pytest tests/
+  ```
+- **연관**: Self-Healing 고려사항 항목 2 (비결정적 테스트)
 
 ---
 
@@ -123,56 +135,71 @@
   - 아이디 저장 체크박스 동작
   - 빈 필드 제출 시 에러 메시지 텍스트 검증
 
+#### 12. 테스트 실패 이슈 자동 등록
+- **현재**: Teams webhook으로 통과/실패 건수만 전송
+- **개선**: 실패한 테스트별로 GitHub Issue (또는 Jira) 자동 생성
+  - 테스트명, 실패 로그, 스크린샷 경로 포함
+  - 동일 이슈 중복 등록 방지 (제목 기반 중복 체크)
+  - 라벨: `e2e-test-failure`, `bug`, `automated`
+- **참고**: 엑셈 팀 `GitHubIssueService` 구현 사례 ([블로그](https://ex-em.com/en/blog/ai-test-code-automation-experience-lessons-learned))
+
 ---
 
-## AI 기반 자율 테스트 실행 (LLM-driven Test Agent)
+## AI Test Agent — 투 트랙 전략
 
-locators.json에 description을 추가하고 BasePage 메서드를 LLM tool로 노출해,
-자연어 테스트 케이스를 LLM이 직접 실행하는 구조.
-
-### 개념 구조
+### 트랙 구조
 
 ```
-locators.json (description 추가)
-    +
-BasePage 메서드 → LLM tools로 노출
-    +
-자연어 테스트 케이스 입력
+Track 1 (현재) — CI 결정적 실행
+    pytest → BasePage → locators.json → self-healing
+    항상 같은 결과, 파이프라인 신뢰성 보장
+
+Track 2 (확장) — Agent 코드 생성
+    자연어 목표 → Sub-agent → locators.json 자동 등록 + pytest 코드 생성
+                                    ↓
+                            Track 1에 편입되어 결정적으로 실행
+```
+
+Agent가 CI를 직접 돌리는 게 아니라 **Track 1에서 돌아갈 코드를 만들어주는 역할**로 분리.
+self-healing도 같은 철학 — LLM이 테스트를 통과시키는 게 아니라 locators.json을 수정하고 이후 결정적으로 실행.
+
+### Claude Code Sub-agent 구조 (Track 2)
+
+엑셈 팀 사례를 참고한 우리 프레임워크 적용안:
+
+```
+개발자 (자연어 요청)
     ↓
-LLM이 tools 호출하면서 테스트 실행
+Claude Code (메인 에이전트 + CLAUDE.md)
+    ├─ @locator-generator   — 신규 페이지 locators.json 자동 생성
+    ├─ @test-writer         — 시나리오 기반 pytest 코드 자동 작성
+    └─ @healing-reviewer    — healed: true 항목 검토 및 수정 제안
 ```
 
-### locators.json 확장 방향
+`.claude/agents/` 디렉토리에 각 sub-agent 정의 파일 배치.
+
+### locators.json `description` 필드 추가
+
+Sub-agent가 어떤 요소인지 이해하려면 description이 필요:
+
 ```json
 {
   "login": {
     "email_input": {
-      "primary": "#input03",
-      "fallback": ["..."],
-      "description": "이메일 입력 필드"
-    },
-    "submit_btn": {
-      "primary": "#btnLogin",
-      "description": "로그인 버튼 — 클릭 시 인증 시도"
+      "primary": "#input01",
+      "fallback": ["role=textbox[name='아이디(이메일계정)']"],
+      "description": "이메일(아이디) 입력 필드",
+      "previous": null,
+      "healed": false
     }
   }
 }
 ```
 
-### Tools 노출 예시
-```python
-tools = [
-  {"name": "click",      "description": "요소 클릭", ...},
-  {"name": "fill",       "description": "텍스트 입력", ...},
-  {"name": "is_visible", "description": "요소 표시 여부 확인", ...},
-  {"name": "assert_url", "description": "현재 URL 검증", ...}
-]
-```
-
 ### 잘 되는 영역
-- **탐색적 테스트** — "이 페이지에서 뭔가 이상한 거 찾아봐"
-- **테스트 코드 생성** — 자연어 → pytest 코드 자동 작성 후 결정적 실행
-- **신규 페이지 빠른 커버리지** — description만 잘 써있으면 LLM이 흐름 파악 가능
+- **신규 페이지 빠른 커버리지** — URL 하나로 locators.json + 테스트 코드 초안 생성
+- **탐색적 테스트** — "이 페이지에서 이상한 거 찾아봐"
+- **healed 항목 일괄 검토** — `healed: true` 항목 diff 분석 후 수정 제안
 
 ### 한계
 
@@ -181,20 +208,44 @@ tools = [
 | 비결정적 실행 | 같은 입력도 LLM 응답이 매번 다를 수 있음 |
 | assertion 신뢰성 | LLM이 "통과"라고 판단해도 실제 버그일 수 있음 |
 | 속도/비용 | 스텝마다 API 호출 → 느리고 비쌈 |
-| 디버깅 어려움 | 왜 그 tool을 선택했는지 추적 힘듦 |
 
-### 권장 hybrid 접근
-LLM을 런타임 실행자가 아닌 **코드 생성기**로 사용:
-```
-자연어 → LLM → pytest 코드 생성 (1회)
-                    ↓
-            이후는 코드가 결정적으로 실행
-```
-
-### 유사 프로젝트 참고
-- **Browser Use** — Python, LLM + Playwright 조합으로 거의 이 개념 그대로 구현
+### 참고
+- **엑셈 팀 블로그** — Claude Code Sub-agent 기반 테스트 자동화 실제 구현 사례
+- **Browser Use** — Python, LLM + Playwright 조합
 - **Stagehand** (Browserbase) — 같은 방향, JS 생태계
-- **Playwright MCP** — Claude가 직접 브라우저 조작
+- **Playwright MCP** — Claude가 직접 브라우저 조작 (아래 섹션 참고)
+
+---
+
+## Playwright MCP 연동
+
+Claude Code에 `@playwright/mcp`를 등록하면 자연어로 브라우저를 직접 조작하고 E2E 테스트 코드를 생성할 수 있습니다.
+
+### 설정
+
+```bash
+claude mcp add playwright npx @playwright/mcp@latest
+```
+
+### 활용 방향
+
+```
+"로그인 페이지 E2E 테스트 코드 작성해줘"
+    ↓
+Claude Code + Playwright MCP
+    → 실제 브라우저 열어서 페이지 탐색
+    → locators.json 기반으로 selector 확인
+    → pytest 코드 생성 → Track 1에 편입
+```
+
+### CLI 방식 vs MCP 방식
+
+| | `generate_locator.py` (CLI) | Playwright MCP |
+|---|---|---|
+| 구현 난이도 | 낮음 (기존 코드 재사용) | 설정 1줄 |
+| 사용 편의성 | 터미널 명령어 | Claude와 대화형 |
+| 브라우저 필요 | 선택 (URL or DOM) | 항상 필요 |
+| 우선 구현 | ✅ | 이후 병행 |
 
 ---
 
@@ -225,15 +276,6 @@ heal_locator() 호출 (기존 코드 재사용)
     ↓
 성공한 것 → primary, 나머지 → fallback으로 locators.json 업데이트
 ```
-
-### 구현 방식 비교
-
-| | CLI 스크립트 | Playwright MCP |
-|---|---|---|
-| 구현 난이도 | 낮음 (기존 코드 재사용) | 중간 (MCP 서버 설정 필요) |
-| 사용 편의성 | 터미널 명령어 | 대화형 (Claude와 직접 대화) |
-| 브라우저 필요 | 선택 (URL or DOM 중 택1) | 항상 필요 |
-| 우선 구현 | ✅ | 추후 검토 |
 
 ### 관련 파일
 - `self_healing.py` — `heal_locator()`, `_update_locator_json()` 재사용

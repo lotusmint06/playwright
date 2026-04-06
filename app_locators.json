@@ -8,14 +8,47 @@
     }
   },
   "main": {
+    "category_btn": {
+      "primary": "accessibility_id:{value}",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    },
+    "jokbal_btn": {
+      "primary": "accessibility_id:족발·보쌈",
+      "fallback": [
+        "uiautomator:new UiSelector().description(\"족발·보쌈\")",
+        "xpath://android.widget.Button[@content-desc='족발·보쌈']"
+      ],
+      "previous": null,
+      "healed": false
+    },
+    "donkkaseu_btn": {
+      "primary": "accessibility_id:돈까스·회",
+      "fallback": [
+        "uiautomator:new UiSelector().description(\"돈까스·회\")",
+        "xpath://android.widget.Button[@content-desc='돈까스·회']"
+      ],
+      "previous": null,
+      "healed": false
+    },
     "pizza_btn": {
       "primary": "accessibility_id:피자",
       "fallback": [
         "uiautomator:new UiSelector().description(\"피자\")",
-        "xpath://android.widget.Button[@content-desc='피자']"      
-        ],
-      "previous": "accessibility_id:피3245345자",
-      "healed": true
+        "xpath://android.widget.Button[@content-desc='피자']"
+      ],
+      "previous": null,
+      "healed": false
+    },
+    "jjim_btn": {
+      "primary": "accessibility_id:찜·탕",
+      "fallback": [
+        "uiautomator:new UiSelector().description(\"찜·탕\")",
+        "xpath://android.widget.Button[@content-desc='찜·탕']"
+      ],
+      "previous": null,
+      "healed": false
     },
     "back_btn": {
       "primary": "accessibility_id:뒤로가기",

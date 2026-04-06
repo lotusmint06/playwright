@@ -61,9 +61,12 @@ class BasePage:
                 continue
 
             # 3. OPENAI_API_KEY 있으면 새 primary 제안 요청 (locator 탐색과 분리)
-            if not os.getenv("OPENAI_API_KEY"):
+            # {value} 플레이스홀더 selector는 healing 스킵 (특정 값으로 템플릿 덮어쓸 위험)
+            if "{value}" in primary:
+                print(f"[Locator] {section}.{key}: {{value}} 플레이스홀더 selector → self-healing 건너뜀")
+            elif not os.getenv("OPENAI_API_KEY"):
                 print(f"[Locator] {section}.{key}: OPENAI_API_KEY 없음 → self-healing 건너뜀")
-            if os.getenv("OPENAI_API_KEY"):
+            else:
                 try:
                     from self_healing import try_heal_primary
                     healed = try_heal_primary(self.page, section, key, primary, fb)

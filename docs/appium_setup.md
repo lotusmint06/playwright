@@ -153,6 +153,37 @@ tests_app/
 
 **금지**: 인덱스 기반 XPath (`//LinearLayout[2]`), `bounds` 기반 selector
 
+### `{value}` 플레이스홀더 — 동적 텍스트
+
+같은 구조의 버튼이 텍스트만 다를 때 하나의 key로 통합합니다.
+
+```json
+"category_btn": {
+  "primary": "accessibility_id:{value}",
+  "fallback": null,
+  "previous": null,
+  "healed": false
+}
+```
+
+```python
+page.tap_category("피자")   # accessibility_id:피자 로 치환
+page.tap_category("치킨")   # accessibility_id:치킨 로 치환
+```
+
+**주의사항:**
+- `fallback`은 `null`로 설정 (동일한 값을 쓰므로 fallback도 함께 실패)
+- `{value}` selector는 healing 자동 스킵 (특정 값으로 템플릿 덮어쓸 위험)
+- 자주 테스트하는 요소는 개별 key로 분리 (healing/fallback 지원)
+
+```json
+// 자주 테스트 → 개별 key (healing 지원)
+"pizza_btn": { "primary": "accessibility_id:피자", "fallback": [...] }
+
+// 임시/다양한 값 → {value} 템플릿 (healing 미지원)
+"category_btn": { "primary": "accessibility_id:{value}", "fallback": null }
+```
+
 ---
 
 ## 5. BaseAppPage

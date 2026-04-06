@@ -108,6 +108,9 @@ appium --config appium.config.json
 
 selector 접두사: `accessibility_id:` / `uiautomator:` / `id:` / `xpath:`
 
+동적 텍스트: `"primary": "accessibility_id:{value}"` → `tap("section", "key", value="피자")`  
+단, `{value}` 포함 selector는 fallback 불필요, healing 자동 스킵
+
 ## fixture scope
 
 - **루트 conftest.py**: 공통 hook (실패 스크린샷, Teams webhook, locator 검증, 옵션 정의)

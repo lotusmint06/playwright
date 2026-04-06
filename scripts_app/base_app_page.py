@@ -4,12 +4,15 @@ BaseAppPage — 모든 App Page Object의 부모 클래스 (Appium)
 탐색 순서:
 1. primary selector 시도
 2. 실패 시 fallback selector 시도
-3. 모두 실패 → Exception
+3. fallback 성공 → OpenAI로 새 primary 제안 → app_locators.json 자동 업데이트 (healed: true)
+4. 모두 실패 → Exception
 
 selector 형식:
-  accessibility_id:<value>   → content-desc 기반
-  xpath:<expression>         → XPath
-  id:<resource-id>           → resource-id 기반
+  accessibility_id:<value>              → content-desc 기반 (1순위)
+  uiautomator:new UiSelector()...       → UiSelector 표현식 (2순위)
+  id:<resource-id>                      → resource-id 기반
+  xpath:<expression>                    → XPath (최후 수단)
+  accessibility_id:{value}              → {value} 플레이스홀더 (동적 텍스트, healing 스킵)
 """
 
 import json
@@ -33,7 +36,9 @@ class BaseAppPage:
 
     # ── Locator 파싱 ─────────────────────────────────────────────────────────
 
-    def _parse_selector(self, selector: str):
+    def _parse_selector(self, selector: str, value: str = None):
+        if value:
+            selector = selector.replace("{value}", value)
         if selector.startswith("accessibility_id:"):
             return AppiumBy.ACCESSIBILITY_ID, selector[len("accessibility_id:"):]
         elif selector.startswith("xpath:"):
@@ -46,7 +51,7 @@ class BaseAppPage:
 
     # ── 요소 탐색 ─────────────────────────────────────────────────────────────
 
-    def get_element(self, section: str, key: str, timeout: int = 15):
+    def get_element(self, section: str, key: str, value: str = None, timeout: int = 15):
         """
         1. primary 시도 (timeout 초 대기)
         2. 실패 시 fallback 시도 (timeout // 2 초 대기)
@@ -57,31 +62,33 @@ class BaseAppPage:
         fallback = entry.get("fallback")
 
         try:
-            by, value = self._parse_selector(primary)
+            by, val = self._parse_selector(primary, value)
             el = WebDriverWait(self.driver, timeout).until(
-                EC.presence_of_element_located((by, value))
+                EC.presence_of_element_located((by, val))
             )
-            print(f"[Locator] {section}.{key}: primary 성공 → '{primary}'")
+            print(f"[Locator] {section}.{key}: primary 성공 → '{val}'")
             return el
         except Exception as e:
-            print(f"[Locator] {section}.{key}: primary 실패 → '{primary}' / {e}")
+            print(f"[Locator] {section}.{key}: primary 실패 → '{val}' / {e}")
 
         fallbacks = [fallback] if isinstance(fallback, str) else (fallback or [])
         for fb in fallbacks:
             try:
-                by, value = self._parse_selector(fb)
+                by, val = self._parse_selector(fb, value)
                 el = WebDriverWait(self.driver, timeout // 2).until(
-                    EC.presence_of_element_located((by, value))
+                    EC.presence_of_element_located((by, val))
                 )
-                print(f"[Locator] {section}.{key}: fallback 성공 → '{fb}'")
+                print(f"[Locator] {section}.{key}: fallback 성공 → '{val}'")
             except Exception as e:
-                print(f"[Locator] {section}.{key}: fallback 실패 → '{fb}' / {e}")
+                print(f"[Locator] {section}.{key}: fallback 실패 → '{val}' / {e}")
                 continue
 
-            # OPENAI_API_KEY 없으면 healing 건너뜀
-            if not os.getenv("OPENAI_API_KEY"):
+            # {value} 플레이스홀더 selector는 healing 스킵 (특정 값으로 템플릿 덮어쓸 위험)
+            if "{value}" in primary:
+                print(f"[Locator] {section}.{key}: {{value}} 플레이스홀더 selector → app-healing 건너뜀")
+            elif not os.getenv("OPENAI_API_KEY"):
                 print(f"[Locator] {section}.{key}: OPENAI_API_KEY 없음 → app-healing 건너뜀")
-            if os.getenv("OPENAI_API_KEY"):
+            else:
                 try:
                     from app_self_healing import try_heal_primary
                     healed = try_heal_primary(self.driver, section, key, primary, fb)
@@ -96,21 +103,21 @@ class BaseAppPage:
 
     # ── 공통 액션 ─────────────────────────────────────────────────────────────
 
-    def tap(self, section: str, key: str):
+    def tap(self, section: str, key: str, value: str = None):
         for attempt in range(3):
             try:
-                self.get_element(section, key).click()
+                self.get_element(section, key, value).click()
                 return
             except StaleElementReferenceException:
                 if attempt == 2:
                     raise
                 print(f"[Locator] {section}.{key}: StaleElement, 재탐색 ({attempt + 1}/3)")
 
-    def get_text(self, section: str, key: str) -> str:
-        return self.get_element(section, key).text
+    def get_text(self, section: str, key: str, value: str = None) -> str:
+        return self.get_element(section, key, value).text
 
-    def is_displayed(self, section: str, key: str) -> bool:
+    def is_displayed(self, section: str, key: str, value: str = None) -> bool:
         try:
-            return self.get_element(section, key).is_displayed()
+            return self.get_element(section, key, value).is_displayed()
         except Exception:
             return False

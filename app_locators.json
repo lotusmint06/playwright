@@ -1,0 +1,30 @@
+{
+  "splash": {
+    "splash_image": {
+      "primary": "accessibility_id:배달의민족 앱을 시작합니다.",
+      "fallback": "xpath://android.widget.ImageView[@content-desc='배달의민족 앱을 시작합니다.']",
+      "previous": null,
+      "healed": false
+    }
+  },
+  "main": {
+    "pizza_btn": {
+      "primary": "accessibility_id:피자",
+      "fallback": [
+        "uiautomator:new UiSelector().description(\"피자\")",
+        "xpath://android.widget.Button[@content-desc='피자']"      
+        ],
+      "previous": "accessibility_id:피3245345자",
+      "healed": true
+    },
+    "back_btn": {
+      "primary": "accessibility_id:뒤로가기",
+      "fallback": [
+        "uiautomator:new UiSelector().description(\"뒤로가기\")",
+        "xpath://android.view.View[@content-desc='뒤로가기']"
+      ],
+      "previous": null,
+      "healed": false
+    }
+  }
+}

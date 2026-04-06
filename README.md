@@ -96,23 +96,35 @@ project/
 │   ├── conftest.py          # Playwright fixture: page (function), session_page (session)
 │   └── test_login.py
 ├── tests_app/               # 앱 테스트 케이스 (Appium)
-│   └── conftest.py          # Appium fixture: app_driver (function)
-└── scripts/                 # Page Object (Playwright 액션 담당)
-    ├── base_page.py         # 웹 공통 액션 + self-healing 연동
-    └── login_page.py
+│   ├── conftest.py          # Appium fixture: 앱 종료/실행, 스플래시 대기, app_driver
+│   ├── test_connection.py   # 디바이스 연결 및 앱 실행 확인
+│   └── test_main.py         # 앱 메인화면 테스트
+├── scripts/                 # 웹 Page Object (Playwright 액션 담당)
+│   ├── base_page.py         # 웹 공통 액션 + self-healing 연동
+│   └── login_page.py
+├── scripts_app/             # 앱 Page Object (Appium 액션 담당)
+│   ├── base_app_page.py     # Appium 공통 액션 + app-healing 연동 + stale retry
+│   └── main_page.py         # 메인화면 Page Object
+├── app_locators.json        # 앱 selector 중앙 관리 (primary/fallback/healed)
+├── app_self_healing.py      # OpenAI(gpt-4o-mini) 기반 앱 self-healing (XML)
+└── appium.config.json       # Appium 서버 설정
 ```
 
 ### 핵심 설계 원칙
 
 | 레이어 | 역할 | 사용 문법 |
 |---|---|---|
-| `tests/` | 검증 로직 | `assert`, pytest only |
+| `tests/` | 웹 검증 로직 | `assert`, pytest only |
+| `tests_app/` | 앱 검증 로직 | `assert`, pytest only |
 | `scripts/` | Playwright 액션 (클릭/입력/탐색) | `BasePage` 상속 |
-| `locators.json` | selector 중앙 관리 | primary / fallback / healed |
+| `scripts_app/` | Appium 액션 (탭/입력/탐색) | `BaseAppPage` 상속 |
+| `locators.json` | 웹 selector 중앙 관리 | primary / fallback / healed |
+| `app_locators.json` | 앱 selector 중앙 관리 | primary / fallback / healed |
 
-- **tests/** 에는 `expect()`, `page.locator()` 등 Playwright 문법 사용 금지
-- **scripts/** 의 모든 Page Object는 `BasePage`를 상속
-- selector는 코드 안에 하드코딩하지 않고 **locators.json** 에서 관리
+- **tests/, tests_app/** 에는 Playwright/Appium 문법 직접 사용 금지
+- **scripts/** 의 모든 웹 Page Object는 `BasePage`를 상속
+- **scripts_app/** 의 모든 앱 Page Object는 `BaseAppPage`를 상속
+- selector는 코드 안에 하드코딩하지 않고 **locators.json / app_locators.json** 에서 관리
 
 ---
 
@@ -210,11 +222,17 @@ def test_after_login(session_page):
 테스트마다 Appium driver를 생성하고 종료합니다.  
 `--app-os` 옵션으로 Android/iOS를 지정합니다.
 
+fixture 내부 동작:
+1. 앱 실행 상태 확인 (`query_app_state`)
+2. 실행 중이면 종료 (`terminate_app`)
+3. 앱 실행 (`activate_app`)
+4. 스플래시 화면 소멸 대기 (`EC.invisibility_of_element_located`)
+
 ```python
-def test_app_login(app_driver, pytestconfig):
-    platform = pytestconfig.getoption("--app-os")
-    login_page = LoginAppPage(app_driver, platform)
-    ...
+def test_tap_pizza(app_driver):
+    page = MainPage(app_driver)
+    page.tap_pizza()
+    page.tap_back()
 ```
 
 ---
@@ -483,5 +501,5 @@ def test_search_returns_results(page):
 | 1 | DOM Context 최적화 | ✅ 완료 | 대상 요소 + 주변 구조 분리 전달, 토큰 72% 절감 — [docs/dom_context_optimization.md](./docs/dom_context_optimization.md) |
 | 2 | xdist race condition 대응 | 미완 | 병렬 실행 시 locators.json 동시 쓰기 문제 해결 (filelock) |
 | 3 | Teams heal 알림 | 미완 | healing 발생 시 Teams에 요소명 + 변경 내역 별도 전송 |
-| 4 | Appium 확장 | 준비중 | `base_app_page.py`, `app_healing.py`, `locators_app.json` — [docs/appium_setup.md](./docs/appium_setup.md) |
+| 4 | Appium 확장 | ✅ 완료 | `BaseAppPage`, `app_self_healing.py`, `app_locators.json`, 스플래시 대기 — [docs/appium_setup.md](./docs/appium_setup.md) |
 | 5 | 테스트 커버리지 확대 | 미완 | 소셜 로그인, 아이디 저장 체크박스, 에러 메시지 텍스트 검증 등 |

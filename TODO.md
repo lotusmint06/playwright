@@ -21,11 +21,11 @@
 
 | 항목 | 이전 | 현재 | 평가 요약 |
 |---|---|---|---|
-| **구조** | 68 | **78** | `is_visible()` 버그 수정, conftest 3파일 분리, `click_and_navigate()` 분리 완료 |
+| **구조** | 68 | **82** | `is_visible()` 버그 수정, conftest 3파일 분리, `scripts_app/` 구조 완성 |
 | **효율성** | 58 | **75** | DOM 컨텍스트 최적화 완료 — 토큰 72% 절감, 오답 후보 제거. xdist race condition 잔존 |
-| **안정성** | 52 | **72** | 버전 고정, `pytest-playwright` 충돌 제거 완료. xdist race condition 미대응 잔존 |
-| **확장성** | 45 | **53** | Appium 확장 구조 문서화 및 conftest 기반 마련. URL 분리·커버리지 확대는 잔존 |
-| **종합** | **56** | **70** | DOM 최적화로 self-healing 품질 향상. 남은 과제는 병렬 실행 안전성과 커버리지 확대 |
+| **안정성** | 52 | **74** | 버전 고정, 스플래시 감지, StaleElement retry, heal_count 분리 완료. xdist 잔존 |
+| **확장성** | 45 | **72** | Appium 확장 완료 — `BaseAppPage`, `app_self_healing.py`, `app_locators.json`, XML 파싱 |
+| **종합** | **56** | **76** | Appium 트랙 실사용 가능 수준 완성. 남은 과제는 병렬 실행 안전성과 커버리지 확대 |
 
 ---
 
@@ -283,60 +283,33 @@ heal_locator() 호출 (기존 코드 재사용)
 
 ---
 
-## Appium 확장 가능성
+## Appium 확장 ✅ 완료
 
-이 프레임워크의 핵심 개념(locators.json + primary/fallback + AI healing)은 Appium 모바일 테스트에도 적용 가능.
-웹보다 앱이 업데이트마다 selector가 더 자주 바뀌어 오히려 더 필요한 영역.
+상세 구현 가이드는 **[docs/appium_setup.md](./docs/appium_setup.md)** 참고.
 
-### 그대로 재사용 가능한 것
-- `locators.json` 구조 (primary / fallback / healed)
-- heal_count 제한, healed 플래그 검토 프로세스
-- AI에게 컨텍스트 넘겨서 selector 제안받는 흐름
+### 구현 완료 항목
 
-### 변경 필요한 것
-
-#### DOM 추출
-```python
-# Playwright
-page.evaluate("() => document.querySelector('form').innerHTML")  # HTML
-
-# Appium
-driver.page_source  # XML (UIAutomator / XCUITest) — 훨씬 크므로 컷 기준 강화 필요
-```
-
-#### Locator 전략
-
-| 우선순위 | Playwright | Appium |
+| 항목 | 파일 | 내용 |
 |---|---|---|
-| 1순위 | `#id` | `accessibility id` |
-| 2순위 | `role=button[name=...]` | `id` (resource-id) |
-| 3순위 | `.static-class` | `-android uiautomator` / `-ios predicate` |
-| 금지 | `data-v-*` | 인덱스 기반 xpath (`//LinearLayout[2]`) |
+| 앱 selector 관리 | `app_locators.json` | primary / fallback 배열 / healed — 웹과 동일 구조 |
+| 앱 Page Object 기반 | `scripts_app/base_app_page.py` | WebDriverWait, stale retry, app-healing 연동 |
+| 앱 self-healing | `app_self_healing.py` | XML 파싱 + Appium 전용 프롬프트 + heal_count 분리 |
+| Appium fixture | `tests_app/conftest.py` | 앱 종료→실행→스플래시 소멸 대기 |
+| 연결 테스트 | `tests_app/test_connection.py` | 세션/디바이스/화면/앱 실행 확인 |
+| 메인화면 테스트 | `tests_app/test_main.py` | 피자 탭 → 뒤로가기 |
 
-#### locators.json 플랫폼 분기
-```json
-{
-  "login": {
-    "email_input": {
-      "android": { "primary": "accessibility id=email", "fallback": "..." },
-      "ios":     { "primary": "accessibility id=email", "fallback": "..." }
-    }
-  }
-}
-```
+### selector 접두사 규칙
 
-#### AI 프롬프트 추가 지침
-```
-"accessibility id=..." 또는 "id=com.example.app:id/..."
-xpath는 텍스트 기반만 허용: //*[@text='로그인']
-인덱스 기반 xpath는 절대 사용하지 마세요: //LinearLayout[2]
-```
+| 접두사 | 전략 | 예시 |
+|---|---|---|
+| `accessibility_id:` | content-desc 기반 (1순위) | `accessibility_id:피자` |
+| `uiautomator:` | UiSelector (2순위) | `uiautomator:new UiSelector().description("피자")` |
+| `id:` | resource-id 기반 | `id:com.sampleapp:id/btn_login` |
+| `xpath:` | XPath (최후 수단) | `xpath://android.widget.Button[@content-desc='피자']` |
 
-### 구현 시 고려사항
-- `BasePage`를 `BaseAppPage`로 상속 확장하여 Appium driver 대응
-- `wait_for()` → `WebDriverWait` + `ExpectedConditions` 로 교체
-- iOS / Android 플랫폼 감지 후 적절한 locator 선택 로직 추가
-- CI healing 비활성화 옵션은 동일하게 적용
+### 남은 과제
+- iOS 테스트 (XCUITest) 검증
+- CI healing 비활성화 옵션 (`DISABLE_HEALING`) 앱에도 적용
 
 ---
 

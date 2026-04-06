@@ -84,6 +84,10 @@ class BasePage:
 
     def click(self, section: str, key: str, value: str = None):
         self.get_locator(section, key, value).click()
+
+    def click_and_navigate(self, section: str, key: str, value: str = None):
+        """클릭 후 페이지 이동이 예상될 때 사용"""
+        self.get_locator(section, key, value).click()
         self.page.wait_for_load_state("networkidle")
 
     def fill(self, section: str, key: str, text: str):
@@ -93,10 +97,10 @@ class BasePage:
         return self.get_locator(section, key, value).text_content()
 
     def is_visible(self, section: str, key: str, value: str = None) -> bool:
-        selector = self.locators[section][key]["primary"]
-        if value:
-            selector = selector.replace("{value}", value)
-        return self.page.locator(selector).is_visible()
+        try:
+            return self.get_locator(section, key, value).is_visible()
+        except Exception:
+            return False
 
     def click_by_text(self, text: str):
         self.click("common", "by_text", value=text)

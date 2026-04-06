@@ -46,6 +46,92 @@ def _get_element_context(page) -> str:
     return context[:4000]
 
 
+def _get_element_context_v2(page, fallback_selector: str = None) -> str:
+    """
+    [실험적] DOM Context 최적화 버전 — 기존 _get_element_context() 대체 후보.
+
+    우선순위:
+    1. fallback_selector 있음 → 해당 요소의 부모 3단계 outerHTML (정제)
+    2. 없음 or 실패 → form/main/body innerHTML (정제)
+
+    정제 항목: style 속성, data-v-* 해시, script/style/svg 태그,
+               이벤트 핸들러, tabindex/aria-hidden 등
+    버튼·레이블 텍스트는 role= selector 생성에 필요하므로 전문 유지.
+    """
+
+    _CLEAN_JS = """
+        node => {
+            const clone = node.cloneNode(true);
+
+            clone.querySelectorAll('script, style, svg, iframe').forEach(n => n.remove());
+
+            // 루트 요소 자체 + 모든 자식 요소 정제
+            [clone, ...clone.querySelectorAll('*')].forEach(el => {
+                el.removeAttribute('style');
+
+                ['tabindex', 'aria-hidden', 'aria-describedby'].forEach(attr => {
+                    el.removeAttribute(attr);
+                });
+
+                Array.from(el.attributes).forEach(attr => {
+                    if (
+                        attr.name.startsWith('on') ||
+                        /^data-v-[a-f0-9]+$/.test(attr.name)
+                    ) {
+                        el.removeAttribute(attr.name);
+                    }
+                });
+
+                const keepFullText = ['button', 'a', 'label', 'option'];
+                if (!keepFullText.includes(el.tagName.toLowerCase())) {
+                    el.childNodes.forEach(child => {
+                        if (child.nodeType === Node.TEXT_NODE) {
+                            const trimmed = child.textContent.trim();
+                            if (trimmed.length > 30) {
+                                child.textContent = ' ' + trimmed.substring(0, 30) + '… ';
+                            }
+                        }
+                    });
+                }
+            });
+
+            return clone.outerHTML;
+        }
+    """
+
+    # 1순위: fallback 요소 기준 부모 3단계
+    if fallback_selector:
+        try:
+            context = page.locator(fallback_selector).evaluate(f"""
+                el => {{
+                    let parent = el;
+                    for (let i = 0; i < 3; i++) {{
+                        if (parent.parentElement) parent = parent.parentElement;
+                    }}
+                    return ({_CLEAN_JS})(parent);
+                }}
+            """)
+            if context:
+                print(f"[Context-v2] fallback 기준 부모 3단계 추출 완료 ({len(context)}자)")
+                return context[:4000]
+        except Exception as e:
+            print(f"[Context-v2] 부모 3단계 추출 실패, form/main/body로 전환: {e}")
+
+    # 2순위: form/main/body
+    context = page.evaluate(f"""
+        () => {{
+            const containers = ['form', 'main', '[role=main]', 'body'];
+            for (const sel of containers) {{
+                const el = document.querySelector(sel);
+                if (el) return ({_CLEAN_JS})(el);
+            }}
+            return ({_CLEAN_JS})(document.body);
+        }}
+    """)
+    print(f"[Context-v2] form/main/body 추출 완료 ({len(context)}자)")
+    return context[:4000]
+
+
 def heal_locator(page, section: str, key: str, failed_selector: str) -> list[str]:
     """OpenAI에 DOM 분석을 요청하고 새 selector 후보를 반환합니다."""
     element_context = _get_element_context(page)

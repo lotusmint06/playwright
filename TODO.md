@@ -17,13 +17,15 @@
 
 ## 현황 평가 (100점 만점)
 
-| 항목 | 점수 | 평가 요약 |
-|---|---|---|
-| **구조** | 68 | 레이어 분리는 명확하나 `is_visible()` 버그, dead code(session_page) 존재 |
-| **효율성** | 58 | 모든 클릭에 networkidle 대기, DOM 4000자 고정 컷, 불필요한 패키지 포함 |
-| **안정성** | 52 | 버전 미고정, xdist race condition 미대응, `pytest-playwright` 충돌 가능성 |
-| **확장성** | 45 | 로그인 페이지만 존재, QA/Prod URL 동일, validate_locators regex 한계 |
-| **종합** | **56** | 아이디어와 방향은 좋으나 안정성·확장성 보강 전에 페이지 추가는 리스크 |
+> 마지막 업데이트: 2026-04-04
+
+| 항목 | 이전 | 현재 | 평가 요약 |
+|---|---|---|---|
+| **구조** | 68 | **78** | `is_visible()` 버그 수정, conftest 3파일 분리, `click_and_navigate()` 분리 완료 |
+| **효율성** | 58 | **67** | 단순 클릭 networkidle 제거, 불필요 패키지(`pytest-playwright`) 제거 완료. DOM 고정 컷은 잔존 |
+| **안정성** | 52 | **72** | 버전 고정, `pytest-playwright` 충돌 제거 완료. xdist race condition 미대응 잔존 |
+| **확장성** | 45 | **53** | Appium 확장 구조 문서화 및 conftest 기반 마련. URL 분리·커버리지 확대는 잔존 |
+| **종합** | **56** | **68** | 핵심 버그·안정성 이슈 해결. 남은 과제는 병렬 실행 안전성과 커버리지 확대 |
 
 ---
 
@@ -69,45 +71,30 @@
 
 ### 🔴 즉시 (버그 / 안정성 위험)
 
-#### 1. `is_visible()` fallback 미반영 버그
-- **파일**: `scripts/base_page.py`
-- **문제**: primary 깨진 상태면 요소가 실제로 있어도 `False` 반환
-- **수정**: `page.locator(selector).is_visible()` → `get_locator()` 결과 사용으로 교체
-- **영향**: `is_submit_btn_visible()`, `is_error_popup_visible()` 등 모든 visibility 체크
+#### 1. ~~`is_visible()` fallback 미반영 버그~~ ✅ 완료
+- `get_locator()` 경유로 교체, fallback·exception 처리 포함
 
-#### 2. requirements.txt 버전 고정
-- **파일**: `requirements.txt`
-- **문제**: 버전 없으면 CI에서 언제든 깨질 수 있음 (`openai` 1.x → 2.x API 변경 사례 있음)
-- **수정**: `pip freeze > requirements.txt` 또는 주요 패키지 버전 명시
-  ```
-  playwright==1.x.x
-  openai==2.x.x
-  pytest==x.x.x
-  ```
+#### 2. ~~requirements.txt 버전 고정~~ ✅ 완료
+- 모든 패키지 버전 고정 (playwright==1.58.0, openai==2.30.0 등)
 
-#### 3. `pytest-playwright` vs `sync_playwright` 통일
-- **파일**: `requirements.txt`, `conftest.py`
-- **문제**: `pytest-playwright` 설치돼 있지만 `sync_playwright` 직접 사용 중 — 충돌 가능성
-- **수정**: `pytest-playwright` 제거하거나, 반대로 fixture를 `pytest-playwright` 방식으로 전환
+#### 3. ~~`pytest-playwright` vs `sync_playwright` 통일~~ ✅ 완료
+- `pytest-playwright`, `pytest-base-url` 제거. `sync_playwright` 직접 사용으로 통일
 
 ---
 
 ### 🟡 단기 (효율성 / 구조 개선)
 
-#### 4. `click()` 네비게이션 여부 구분
-- **파일**: `scripts/base_page.py`
-- **문제**: 체크박스, 토글 등 단순 UI 변경에도 networkidle 대기 — 불필요한 지연
-- **수정**: `click()`은 그대로 유지, `click_and_navigate()`를 별도로 만들어 네비게이션이 예상되는 경우에만 사용
+#### 4. ~~`click()` 네비게이션 여부 구분~~ ✅ 완료
+- `click()` 단순 클릭, `click_and_navigate()` 분리. 네비게이션 유발 호출 모두 교체
 
 #### 5. xdist 병렬 실행 시 locators.json race condition
 - **파일**: `self_healing.py`, `scripts/base_page.py`
 - **문제**: 여러 worker가 동시에 locators.json 읽기/쓰기 시 데이터 손상 가능
 - **수정**: `filelock` 라이브러리로 쓰기 시 lock 처리, 또는 CI에서 healing 비활성화 옵션 추가
 
-#### 6. `session_page` fixture dead code
-- **파일**: `conftest.py`
-- **문제**: 실제로 사용하는 테스트 없음
-- **수정**: 로그인 유지가 필요한 테스트 작성 후 활용하거나, 준비 안 됐으면 제거
+#### 6. `session_page` — 향후 활용 예정
+- **파일**: `tests/conftest.py`
+- **현황**: 로그인 상태 유지 테스트 작성 시 사용 예정으로 유지
 
 ---
 

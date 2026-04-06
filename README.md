@@ -85,17 +85,20 @@ flowchart TD
 
 ```
 project/
-├── conftest.py              # 브라우저 fixture, 환경 설정, Teams webhook
-├── env.json                 # QA/Prod × PC/Mobile 환경별 URL
-├── locators.json            # 페이지별 element selector 중앙 관리
+├── conftest.py              # 공통 hook: 스크린샷, Teams webhook, locator 검증, pytest 옵션
+├── env.json                 # QA/Prod × PC/Mobile/Android/iOS 환경별 설정
+├── locators.json            # 웹 selector 중앙 관리 (primary/fallback/healed)
 ├── validate_locators.py     # locators.json 정합성 검증 스크립트
-├── self_healing.py          # OpenAI(gpt-4o-mini) 기반 self-healing
+├── self_healing.py          # OpenAI(gpt-4o-mini) 기반 웹 self-healing
 ├── pytest.ini               # pytest 기본 옵션
-├── requirements.txt
-├── tests/                   # 테스트 케이스 (pytest assertion만, Playwright 문법 없음)
+├── requirements.txt         # 버전 고정
+├── tests/                   # 웹 테스트 케이스 (pytest assertion만, Playwright 문법 없음)
+│   ├── conftest.py          # Playwright fixture: page (function), session_page (session)
 │   └── test_login.py
+├── tests_app/               # 앱 테스트 케이스 (Appium)
+│   └── conftest.py          # Appium fixture: app_driver (function)
 └── scripts/                 # Page Object (Playwright 액션 담당)
-    ├── base_page.py         # 공통 액션 + self-healing 연동
+    ├── base_page.py         # 웹 공통 액션 + self-healing 연동
     └── login_page.py
 ```
 
@@ -129,6 +132,8 @@ playwright install chromium
 
 ## 실행
 
+### 웹 테스트
+
 ```bash
 # 기본 (QA 환경, PC)
 pytest tests/
@@ -147,17 +152,34 @@ pytest tests/test_login.py
 pytest tests/ -k "test_login_success"
 ```
 
-| 옵션 | 값 | 기본값 |
-|---|---|---|
-| `--env` | `qa` \| `prod` | `qa` |
-| `--platform` | `pc` \| `mo` | `pc` |
-| `--headless` | `true` \| `false` | `false` |
+### 앱 테스트 (Appium)
+
+```bash
+# 기본 (QA 환경, Android)
+pytest tests_app/
+
+# iOS / Prod
+pytest tests_app/ --app-os=ios --env=prod
+```
+
+| 옵션 | 값 | 기본값 | 대상 |
+|---|---|---|---|
+| `--env` | `qa` \| `prod` | `qa` | 웹 + 앱 공통 |
+| `--platform` | `pc` \| `mo` | `pc` | 웹 전용 |
+| `--headless` | `true` \| `false` | `false` | 웹 전용 |
+| `--app-os` | `android` \| `ios` | `android` | 앱 전용 |
 
 ---
 
 ## Fixture
 
-`conftest.py`는 두 가지 scope의 브라우저 fixture를 제공합니다.
+conftest.py는 역할에 따라 3개 파일로 분리되어 있습니다.
+
+| 파일 | 역할 |
+|---|---|
+| `conftest.py` (루트) | 공통 hook — 실패 스크린샷, Teams webhook, locator 검증, 옵션 정의 |
+| `tests/conftest.py` | Playwright fixture — `page`, `session_page` |
+| `tests_app/conftest.py` | Appium fixture — `app_driver` |
 
 ### `page` (function scope) — 기본
 
@@ -182,6 +204,18 @@ def test_after_login(session_page):
 ```
 
 > xdist와 함께 session scope를 사용하면 worker 간 브라우저 공유가 불가능하므로 주의하세요.
+
+### `app_driver` (function scope) — Appium
+
+테스트마다 Appium driver를 생성하고 종료합니다.  
+`--app-os` 옵션으로 Android/iOS를 지정합니다.
+
+```python
+def test_app_login(app_driver, pytestconfig):
+    platform = pytestconfig.getoption("--app-os")
+    login_page = LoginAppPage(app_driver, platform)
+    ...
+```
 
 ---
 
@@ -432,8 +466,8 @@ class SearchPage(BasePage):
 from scripts.search_page import SearchPage
 
 def test_search_returns_results(page):
+    # page fixture가 env_config["base_url"]로 이동한 상태로 전달됨
     search = SearchPage(page)
-    page.goto("https://...")
     search.search("하와이")
     assert search.get_result_count() > 0
 ```
@@ -442,10 +476,12 @@ def test_search_returns_results(page):
 
 ## 향후 개선 계획
 
-| # | 항목 | 설명 |
-|---|---|---|
-| 1 | DOM Context 최적화 | fallback 성공 요소의 부모 3단계 HTML만 추출해 토큰 절약 |
-| 2 | Timeout 자동 조정 | primary 5s → fallback 3s × N 으로 단계별 최적화 |
-| 3 | Reload 후 재시도 | healing 직후 반환된 fallback 대신 새 primary로 즉시 재시도 |
-| 4 | Teams heal 알림 | healing 발생 시 Teams에 요소명 + 변경 내역 별도 전송 |
-| 5 | xdist race condition 대응 | 병렬 실행 시 locators.json 동시 쓰기 문제 해결 (file lock 등) |
+상세 작업 목록 및 현황 평가는 **[TODO.md](./TODO.md)** 를 참고하세요.
+
+| # | 항목 | 상태 | 설명 |
+|---|---|---|---|
+| 1 | DOM Context 최적화 | 미완 | fallback 요소 주변 HTML만 추출 + 불필요 속성 정제 — [dom_context_optimization.md](./dom_context_optimization.md) 참고 |
+| 2 | xdist race condition 대응 | 미완 | 병렬 실행 시 locators.json 동시 쓰기 문제 해결 (filelock) |
+| 3 | Teams heal 알림 | 미완 | healing 발생 시 Teams에 요소명 + 변경 내역 별도 전송 |
+| 4 | Appium 확장 | 준비중 | `base_app_page.py`, `app_healing.py`, `locators_app.json` — [appium_setup.md](./appium_setup.md) 참고 |
+| 5 | 테스트 커버리지 확대 | 미완 | 소셜 로그인, 아이디 저장 체크박스, 에러 메시지 텍스트 검증 등 |

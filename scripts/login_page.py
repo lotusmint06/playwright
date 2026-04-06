@@ -7,7 +7,7 @@ class LoginPage(BasePage):
         self.fill("login", "email_input", email)
         self.click("login", "password_input")
         self.fill("login", "password_input", password)
-        self.click("login", "submit_btn")
+        self.click_and_navigate("login", "submit_btn")
 
     def get_title(self) -> str:
         return self.page.title()

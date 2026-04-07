@@ -204,6 +204,30 @@ pytest tests_api/test_shop_detail.py -v -s
 
 ---
 
+## TODO
+
+### 스키마 검증 추가
+
+응답 필드의 타입·필수 여부를 검증하는 스키마 테스트를 추가할 예정이다.
+값 비교만으로는 필드가 아예 사라지거나 타입이 바뀌는 케이스를 잡을 수 없다.
+
+**구현 방향**
+- `jsonschema` 라이브러리 사용
+- `scripts_api/schemas.py`에 스키마 정의 분리
+- `required` 필드 + 타입 검증 위주 (부분 스키마)
+- API 스펙 변경 시 스키마 파일만 수정
+
+**JSON Schema 공부 순서**
+1. `type`, `required`, `properties` 기본 3개
+2. `null` 타입 처리 — 필드 없음 vs null 구분
+3. `enum` — 고정값 검증 (예: `"CPC"`, `"SORT__DEFAULT"`)
+4. `additionalProperties` — 불필요한 필드 차단 여부
+5. `$ref` — 스키마 재사용 (중복 제거)
+
+> 참고: `json-schema.org` (공식 스펙)
+
+---
+
 ## 예외 사항
 
 ### 주문순 정렬 (`SORT__ORDER`) 검증 불가

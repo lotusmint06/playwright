@@ -26,10 +26,10 @@ def _distance_km(shop: dict) -> float:
 
 # ── 테스트 ────────────────────────────────────────────────────────────────────
 
-def test_shop_list_not_empty(shops_default):
-    """가게 목록 조회 시 1개 이상 반환"""
+def test_shop_list_count(shops_default):
+    """가게 목록 조회 시 limit(30)만큼 반환"""
     print(f"\n[결과] 가게 수: {len(shops_default)}")
-    assert len(shops_default) > 0
+    assert len(shops_default) == 30
 
 
 def test_sort_by_star_descending(shops_star):

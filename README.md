@@ -98,7 +98,8 @@ project/
 ├── tests_app/               # 앱 테스트 케이스 (Appium)
 │   ├── conftest.py          # Appium fixture: 앱 종료/실행, 스플래시 대기, app_driver
 │   ├── test_connection.py   # 디바이스 연결 및 앱 실행 확인
-│   └── test_main.py         # 앱 메인화면 테스트
+│   ├── test_main.py         # 앱 메인화면 테스트
+│   └── test_categories.py   # API 기반 카테고리 탭 테스트
 ├── scripts/                 # 웹 Page Object (Playwright 액션 담당)
 │   ├── base_page.py         # 웹 공통 액션 + self-healing 연동
 │   └── login_page.py
@@ -106,11 +107,6 @@ project/
 │   ├── base_app_page.py     # Appium 공통 액션 + app-healing 연동 + stale retry
 │   ├── main_page.py         # 메인화면 Page Object
 │   └── food_list_page.py    # 음식배달 목록 Page Object
-├── tests_app/
-│   ├── conftest.py          # Appium fixture
-│   ├── test_connection.py   # 디바이스 연결 및 앱 실행 확인
-│   ├── test_main.py         # 앱 메인화면 테스트
-│   └── test_categories.py   # API 기반 카테고리 탭 테스트
 ├── tools/                   # 개발/검증 도구 (pytest 수집 대상 아님)
 │   ├── check_context.py     # DOM 컨텍스트 추출 및 OpenAI 후보 품질 검증
 │   └── api_client.py        # 배민 Gateway API 클라이언트 (카테고리 목록 조회)
@@ -148,6 +144,10 @@ source .venv/bin/activate      # macOS/Linux
 
 pip3 install -r requirements.txt
 playwright install chromium
+
+# 환경변수 설정
+cp .env.example .env
+# .env 파일을 열어 실제 값 입력
 ```
 
 ---
@@ -444,11 +444,29 @@ export TEAMS_WEBHOOK_URL="https://..."
 
 ### 환경변수 정리
 
+`.env.example`을 복사해서 `.env`를 생성하고 실제 값을 입력합니다.
+
 ```bash
-export OPENAI_API_KEY="sk-..."          # self-healing 활성화
-export TEAMS_WEBHOOK_URL="https://..."  # 테스트 결과 Teams 전송
-export TEST_EMAIL="user@hanatour.com"   # 로그인 성공 테스트용
-export TEST_PASSWORD="password"         # 로그인 성공 테스트용
+cp .env.example .env
+```
+
+```bash
+# Self-healing / Teams 알림
+OPENAI_API_KEY=        # self-healing 활성화 (선택)
+TEAMS_WEBHOOK_URL=     # 테스트 결과 Teams 전송 (선택)
+
+# 로그인 테스트
+TEST_EMAIL=            # 로그인 성공 테스트용 계정
+TEST_PASSWORD=         # 로그인 성공 테스트용 비밀번호
+
+# 배민 Gateway API (앱 카테고리 테스트용)
+BAEMIN_USER_BAEDAL=
+BAEMIN_DVC_UNIQ_ID=
+BAEMIN_DVCID=
+BAEMIN_ADJUST_ID=
+BAEMIN_PERSEUS_CLIENT_ID=
+BAEMIN_PERSEUS_SESSION_ID=
+BAEMIN_SESSION_ID=
 ```
 
 ---

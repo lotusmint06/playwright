@@ -18,6 +18,9 @@
 
 import os
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 _BASE_URL = "https://gateway-api.baemin.com/v3/gateway/elements"

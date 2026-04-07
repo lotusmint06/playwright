@@ -20,7 +20,7 @@ def pytest_configure(config):
     if result.returncode != 0:
         pytest.exit(f"Locator 검증 실패:\n{result.stdout}\n{result.stderr}")
 
-    for heal_file in (".heal_count.json", ".heal_count_app.json"):
+    for heal_file in (".heal_count.json", ".app_heal_count.json"):
         if os.path.exists(heal_file):
             os.remove(heal_file)
 

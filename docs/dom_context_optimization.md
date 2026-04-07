@@ -320,8 +320,8 @@ element_context = _get_element_context(page)  # fallback_selector 없음
 
 ## 6. 실측 결과
 
-대상: `https://accounts.hanatour.com` (로그인 페이지)  
-검증 스크립트: `test_context_v2.py`
+대상: 로그인 페이지  
+검증 스크립트: `tools/check_context.py`
 
 ### 컨텍스트 크기 비교 (2026-04-04)
 

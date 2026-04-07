@@ -106,10 +106,15 @@ env.json                 # android/ios 디바이스 설정 포함
 scripts_app/
   base_app_page.py       # Appium 공통 액션 (탭/텍스트/가시성)
   main_page.py           # 메인화면 Page Object
+  food_list_page.py      # 음식배달 목록 Page Object
 tests_app/
   conftest.py            # Appium fixture
   test_connection.py     # 디바이스 연결 확인
   test_main.py           # 앱 기능 테스트
+  test_categories.py     # API 기반 카테고리 탭 테스트
+tools/
+  api_client.py          # 배민 Gateway API 클라이언트 (카테고리 목록 조회)
+  check_context.py       # DOM 컨텍스트 추출 및 OpenAI 후보 품질 검증
 ```
 
 ---

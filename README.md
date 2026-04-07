@@ -46,6 +46,37 @@ python tools/generate_locator.py \
 
 ---
 
+## 프로젝트 구조
+
+```
+├── conftest.py              # 공통 hook (스크린샷, Teams webhook, locator 검증)
+├── locators.json             # 웹 selector 중앙 관리
+├── app_locators.json         # 앱 selector 중앙 관리
+├── self_healing.py           # 웹 self-healing (OpenAI)
+├── app_self_healing.py       # 앱 self-healing (OpenAI)
+├── tests/                    # 웹 테스트 (assert만 작성)
+│   ├── test_home.py
+│   └── test_login.py
+├── tests_app/                # 앱 테스트 (assert만 작성)
+│   ├── test_connection.py
+│   ├── test_main.py
+│   └── test_categories.py
+├── scripts/                  # 웹 Page Object (Playwright)
+│   ├── base_page.py
+│   ├── home_page.py
+│   └── login_page.py
+├── scripts_app/              # 앱 Page Object (Appium)
+│   ├── base_app_page.py
+│   ├── main_page.py
+│   └── food_list_page.py
+└── tools/                    # 개발·검증 도구
+    ├── generate_locator.py   # URL → selector 사전 생성
+    ├── api_client.py         # Gateway API 클라이언트
+    └── check_context.py      # DOM 컨텍스트 검증
+```
+
+---
+
 ## 빠른 시작
 
 ```bash

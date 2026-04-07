@@ -4,11 +4,9 @@ import time
 import pytest
 
 from scripts_api.shop_api import get_shops, SortOption
-from scripts_api.shop_detail_api import get_shop_detail
 
 CATEGORY = "FOOD_CATEGORY_JOKBAL"
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
-DETAIL_SAMPLE_COUNT = 10
 
 
 def _save(filename: str, data: object):
@@ -18,7 +16,7 @@ def _save(filename: str, data: object):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def _load(filename: str) -> list:
+def _load(filename: str):
     path = os.path.join(FIXTURE_DIR, filename)
     with open(path, encoding="utf-8") as f:
         return json.load(f)
@@ -54,15 +52,3 @@ def shops_favorite():
     _save("shops_favorite.json", data)
     time.sleep(1)
     return data
-
-
-@pytest.fixture(scope="session")
-def shop_details(shops_default):
-    """목록 상위 N개의 상세 API 호출 결과 — shops_default fixture에 의존"""
-    details = []
-    for shop in shops_default[:DETAIL_SAMPLE_COUNT]:
-        detail = get_shop_detail(shop, sort=SortOption.DEFAULT)
-        details.append({"list": shop, "detail": detail})
-        time.sleep(1)
-    _save("shop_details.json", details)
-    return details

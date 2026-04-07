@@ -164,24 +164,24 @@ detail = get_shop_detail(shop, sort=SortOption.DEFAULT)
 
 conftest.py의 session fixture가 API를 호출하고 결과를 JSON으로 저장합니다.
 
-| 테스트                               | fixture          | 검증 내용                             |
-| --------------------------------- | ---------------- | --------------------------------- |
-| `test_shop_list_not_empty`        | `shops_default`  | 가게 목록 1개 이상 반환                    |
-| `test_sort_by_star_descending`    | `shops_star`     | 광고 제외 가게의 `averageStarScore` 내림차순 |
-| `test_sort_by_distance_ascending` | `shops_distance` | 광고 제외 가게의 거리 오름차순                 |
-| `test_default_sort_contains_ads`  | `shops_default`  | 기본순에서 CPC 광고 가게 포함 여부             |
+| 테스트                               | fixture          | 검증 내용                             | 결과 요약                              |
+| --------------------------------- | ---------------- | --------------------------------- | ---------------------------------- |
+| `test_shop_list_not_empty`        | `shops_default`  | 가게 목록 1개 이상 반환                    | 30개 반환                             |
+| `test_sort_by_star_descending`    | `shops_star`     | 광고 제외 가게의 `averageStarScore` 내림차순 | 광고 제외 28개, 전체 5.0점 (동점 다수)         |
+| `test_sort_by_distance_ascending` | `shops_distance` | 광고 제외 가게의 거리 오름차순                 | 광고 제외 28개, 1.0km ~ 2.2km 오름차순 확인   |
+| `test_default_sort_contains_ads`  | `shops_default`  | 기본순에서 CPC 광고 가게 포함 여부             | 광고 가게 7개 포함 확인                     |
 
 
 ### `tests_api/test_shop_detail.py` — 목록↔상세 교차 검증
 
 `shop_details` session fixture가 `shops_default.json`을 로드 → 상세 API 순차 호출 → `shop_details.json` 저장합니다.
 
-| 테스트                                     | 검증 내용                                                         |
-| --------------------------------------- | ------------------------------------------------------------- |
-| `test_shop_name_matches_list`           | 상세 `shopName` == 목록 `shopInfo.shopName`                       |
-| `test_minimum_order_price_matches_list` | 상세 `shopMinimumOrderPrice` == 목록 `shopInfo.minimumOrderPrice` |
-| `test_shop_is_possible_to_order`        | 상세 `isPossibleToOrder == True`                                |
-| `test_review_rating_matches_list`       | 상세 `reviewRatingText` == 목록 `averageStarScore`                |
+| 테스트                                     | 검증 내용                                                         | 결과 요약                    |
+| --------------------------------------- | ------------------------------------------------------------- | ------------------------ |
+| `test_shop_name_matches_list`           | 상세 `shopName` == 목록 `shopInfo.shopName`                       | 10개 전체 일치                |
+| `test_minimum_order_price_matches_list` | 상세 `shopMinimumOrderPrice` == 목록 `shopInfo.minimumOrderPrice` | 10개 전체 일치 (12,000 ~ 30,000원) |
+| `test_shop_is_possible_to_order`        | 상세 `isPossibleToOrder == True`                                | 10개 전체 주문 가능 상태          |
+| `test_review_rating_matches_list`       | 상세 `reviewRatingText` == 목록 `averageStarScore`                | 10개 전체 일치 (4.5 ~ 5.0)    |
 
 
 ---

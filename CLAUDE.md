@@ -21,18 +21,23 @@ project/
 ├── tests_app/               # 앱 테스트 — pytest assertion만 작성
 │   ├── conftest.py          # Appium fixture: 앱 종료/실행, 스플래시 대기, app_driver
 │   ├── test_connection.py   # 디바이스 연결 및 앱 실행 확인 테스트
-│   └── test_main.py         # 앱 메인화면 테스트
+│   ├── test_main.py         # 앱 메인화면 테스트
+│   └── test_categories.py   # API 기반 카테고리 탭 테스트
 ├── scripts/                 # 웹 Page Object (BasePage 상속)
 │   ├── base_page.py         # 웹 공통 액션 + self-healing 연동
 │   └── login_page.py
 ├── scripts_app/             # 앱 Page Object (BaseAppPage 상속)
 │   ├── base_app_page.py     # Appium 공통 액션 + app-healing 연동 + stale retry
-│   └── main_page.py         # 메인화면 Page Object
+│   ├── main_page.py         # 메인화면 Page Object
+│   └── food_list_page.py    # 음식배달 목록 Page Object
 ├── docs/                    # 설계 문서
+│   ├── details.md                   # 아키텍처 · 흐름도 · 설계 원칙 상세
 │   ├── dom_context_optimization.md  # Self-Healing DOM 컨텍스트 최적화 ✅
 │   └── appium_setup.md              # Appium 구현 가이드
-└── tools/                   # 개발/검증 도구 (pytest 수집 대상 아님)
-    └── check_context.py     # DOM 컨텍스트 추출 및 OpenAI 후보 품질 검증
+├── tools/                   # 개발/검증 도구 (pytest 수집 대상 아님)
+│   ├── check_context.py     # DOM 컨텍스트 추출 및 OpenAI 후보 품질 검증
+│   └── api_client.py        # 배민 Gateway API 클라이언트 (카테고리 목록 조회)
+└── .env.example             # 환경변수 템플릿
 ```
 
 ## 실행 명령어
@@ -53,6 +58,7 @@ pytest tests/ -k "test_login"                  # 특정 테스트
 pytest tests_app/                              # 기본 (QA, Android)
 pytest tests_app/ --app-os=ios --env=prod      # iOS / Prod
 pytest tests_app/test_connection.py --app-os=android -v -s  # 연결 확인
+pytest tests_app/test_categories.py --app-os=android -v -s  # API 기반 카테고리 탭 테스트
 
 # locator 검증
 python validate_locators.py
@@ -122,3 +128,13 @@ selector 접두사: `accessibility_id:` / `uiautomator:` / `id:` / `xpath:`
 ```bash
 export OPENAI_API_KEY="sk-..."          # self-healing 활성화 (웹/앱 공통)
 export TEAMS_WEBHOOK_URL="https://..."  # 테스트 결과 Teams 전송
+
+# 배민 Gateway API (앱 카테고리 테스트용) — .env 파일로 관리
+# cp .env.example .env 후 실제 값 입력
+BAEMIN_USER_BAEDAL=
+BAEMIN_DVC_UNIQ_ID=
+BAEMIN_DVCID=
+BAEMIN_ADJUST_ID=
+BAEMIN_PERSEUS_CLIENT_ID=
+BAEMIN_PERSEUS_SESSION_ID=
+BAEMIN_SESSION_ID=

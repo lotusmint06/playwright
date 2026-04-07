@@ -214,6 +214,11 @@ playwright-report/
 
 # Self-healing
 .heal_count.json
+.app_heal_count.json
+
+# Appium XML 덤프
+splash.xml
+ui.xml
 
 # Playwright MCP (로컬 세션 로그/스냅샷)
 .playwright-mcp/

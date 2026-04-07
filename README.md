@@ -108,3 +108,4 @@ pytest tests_app/ --app-os=android
 - [아키텍처 · 흐름도 · 설계 원칙](docs/details.md)
 - [Self-Healing DOM 최적화](docs/dom_context_optimization.md)
 - [Appium 설정 가이드](docs/appium_setup.md)
+- [API 테스트 가이드](docs/api_test.md)

@@ -225,3 +225,6 @@ ui.xml
 
 # Claude Code 로컬 설정
 .claude/
+
+# API 테스트 fixture (API 호출로 갱신, 민감 데이터 포함 가능)
+tests_api/fixtures/

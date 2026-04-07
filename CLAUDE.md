@@ -33,10 +33,20 @@ project/
 │   ├── base_app_page.py     # Appium 공통 액션 + app-healing 연동 + stale retry
 │   ├── main_page.py         # 메인화면 Page Object
 │   └── food_list_page.py    # 음식배달 목록 Page Object
+├── scripts_api/             # API 클라이언트
+│   ├── base_api.py          # 공통 헤더·파라미터
+│   ├── shop_api.py          # 가게 목록 API (get_shops, SortOption)
+│   └── shop_detail_api.py   # 가게 상세 API (get_shop_detail)
+├── tests_api/               # API 테스트 — pytest assertion만 작성
+│   ├── conftest.py          # session fixture: API 호출 + fixtures/ 저장
+│   ├── fixtures/            # API 응답 JSON (gitignore, 테스트 실행 시 자동 갱신)
+│   ├── test_shop.py         # 가게 목록 정렬·광고 검증
+│   └── test_shop_detail.py  # 목록↔상세 데이터 정합성 검증
 ├── docs/                    # 설계 문서
 │   ├── details.md                   # 아키텍처 · 흐름도 · 설계 원칙 상세
 │   ├── dom_context_optimization.md  # Self-Healing DOM 컨텍스트 최적화 ✅
-│   └── appium_setup.md              # Appium 구현 가이드
+│   ├── appium_setup.md              # Appium 구현 가이드
+│   └── api_test.md                  # API 테스트 가이드
 ├── tools/                   # 개발/검증 도구 (pytest 수집 대상 아님)
 │   ├── check_context.py       # DOM 컨텍스트 추출 및 OpenAI 후보 품질 검증
 │   ├── api_client.py          # 배민 Gateway API 클라이언트 (카테고리 목록 조회)
@@ -69,6 +79,9 @@ python validate_locators.py
 
 # locator 사전 생성 (웹 전용, OPENAI_API_KEY 필요)
 python tools/generate_locator.py --url <URL> --section <섹션> --key <키> --description <요소설명>
+
+# API 테스트 실행 (API 호출 + fixture 저장 + 검증)
+pytest tests_api/ -v -s
 
 # Appium 서버 실행
 appium --config appium.config.json
@@ -129,6 +142,7 @@ selector 접두사: `accessibility_id:` / `uiautomator:` / `id:` / `xpath:`
 - **루트 conftest.py**: 공통 hook (실패 스크린샷, Teams webhook, locator 검증, 옵션 정의)
 - **tests/conftest.py**: `page` (function scope, 기본), `session_page` (session scope, 로그인 유지) — Playwright 전용
 - **tests_app/conftest.py**: `app_driver` (function scope) — Appium 전용. 앱 상태 확인 → 종료 → 실행 → 스플래시 대기 후 yield
+- **tests_api/conftest.py**: `shops_*`, `shop_details` (session scope) — API 호출 + fixtures/ 저장
 
 ## 환경변수
 

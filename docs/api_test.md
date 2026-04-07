@@ -1,0 +1,197 @@
+# API 테스트 가이드
+
+배민 Shop 목록 및 상세 API를 대상으로 한 자동화 테스트 설계 및 구현 내용을 정리합니다.
+
+---
+
+## 목차
+
+1. [개요](#개요)
+2. [프로젝트 구조](#프로젝트-구조)
+3. [환경 설정](#환경-설정)
+4. [API 클라이언트](#api-클라이언트)
+5. [테스트 케이스](#테스트-케이스)
+6. [실행 방법](#실행-방법)
+7. [예외 사항](#예외-사항)
+
+---
+
+## 개요
+
+배민 Shop API를 호출해 정렬 기준·광고 포함 여부, 목록↔상세 데이터 정합성을 자동화로 검증합니다.
+
+**대상 API**
+```
+GET https://shopdp-api.baemin.com/v4/FOOD_CATEGORY/shops       # 목록
+GET https://shop-detail-api.baemin.com/api/v2/shops/{id}/detail # 상세
+```
+
+**특이 사항**
+- Cloudflare Bot Management(`__cf_bm` 쿠키)로 보호되어 있어 일반 `requests` 라이브러리는 403 반환
+- `curl_cffi`의 Chrome TLS 핑거프린트 impersonation으로 우회
+
+**테스트 실행 흐름**
+```
+pytest tests_api/
+  └─ conftest.py fixture (session scope)
+       ├─ 목록 API 호출 (기본/별점/거리/찜순) → tests_api/fixtures/*.json 저장
+       └─ 상세 API 호출 (기본순 상위 10개, 1초 딜레이) → shop_details.json 저장
+```
+
+테스트 실행 시 API를 직접 호출하고 응답을 `tests_api/fixtures/`에 저장합니다.
+저장된 fixture는 다음 실행에서 재사용하지 않으며, 매 실행마다 최신 데이터로 갱신됩니다.
+
+---
+
+## 프로젝트 구조
+
+```
+scripts_api/
+├── __init__.py
+├── base_api.py          # 공통 헤더·파라미터 (COMMON_HEADERS, COMMON_PARAMS)
+├── shop_api.py          # 가게 목록 API 클라이언트 (get_shops, SortOption)
+└── shop_detail_api.py   # 가게 상세 API 클라이언트 (get_shop_detail)
+
+tests_api/
+├── __init__.py
+├── conftest.py          # session fixture — API 호출 + fixture JSON 저장
+├── fixtures/            # API 응답 저장 (gitignore, 테스트 실행 시 자동 갱신)
+├── test_shop.py         # 가게 목록 API 테스트
+└── test_shop_detail.py  # 가게 상세 API 테스트 (목록↔상세 교차 검증)
+```
+
+---
+
+## 환경 설정
+
+`.env` 파일에 아래 항목을 설정합니다. (`.env.example` 참고)
+
+| 환경변수 | 설명 |
+|---|---|
+| `BAEMIN_USER_BAEDAL` | User-Baedal 인증 헤더 |
+| `BAEMIN_DVC_UNIQ_ID` | 디바이스 고유 ID |
+| `BAEMIN_DVCID` | 디바이스 ID |
+| `BAEMIN_ADJUST_ID` | Adjust 트래킹 ID |
+| `BAEMIN_PERSEUS_CLIENT_ID` | Perseus 클라이언트 ID |
+| `BAEMIN_PERSEUS_SESSION_ID` | Perseus 세션 ID |
+| `BAEMIN_SESSION_ID` | 세션 ID |
+| `BAEMIN_COOKIE` | Cloudflare `__cf_bm` 쿠키값 |
+
+> `__cf_bm` 쿠키는 유효시간이 짧으므로 만료 시 Postman 등에서 최신값을 복사해서 `.env`에 업데이트한다.
+
+---
+
+## API 클라이언트
+
+### `scripts_api/base_api.py`
+
+`COMMON_HEADERS`, `COMMON_PARAMS`를 모듈 레벨 상수로 정의해 하위 클라이언트가 공유합니다.
+
+### `scripts_api/shop_api.py`
+
+#### SortOption
+
+| 상수 | 값 | 설명 |
+|---|---|---|
+| `SortOption.DEFAULT` | `SORT__DEFAULT` | 기본순 |
+| `SortOption.ORDER` | `SORT__ORDER` | 주문 많은 순 |
+| `SortOption.FAVORITE` | `SORT__FAVORITE` | 찜 많은 순 |
+| `SortOption.DISTANCE` | `SORT__DISTANCE` | 가까운 순 |
+| `SortOption.STAR` | `SORT__STAR` | 별점 높은 순 |
+
+#### `get_shops(display_category, sort, offset, limit)`
+
+```python
+from scripts_api.shop_api import get_shops, SortOption
+
+shops = get_shops("FOOD_CATEGORY_JOKBAL", SortOption.STAR)
+```
+
+**주요 응답 필드**
+
+| 경로 | 설명 |
+|---|---|
+| `shopInfo.shopName` | 가게 이름 |
+| `shopInfo.shopNumber` | 가게 번호 |
+| `shopInfo.minimumOrderPrice` | 최소 주문 금액 |
+| `shopStatistics.averageStarScore` | 평균 별점 |
+| `shopStatistics.latestReviewCount` | 최근 리뷰 수 |
+| `deliveryInfos[0].distancePhrase` | 거리 (예: `"1.2km"`) |
+| `logInfo.performanceAdTrackingLog.performanceAdType` | 광고 여부 (`"CPC"` = 광고) |
+| `adInfo.campaignId` | 광고 캠페인 ID (상세 API 호출 시 사용) |
+| `contextInfo.bypassData` | 상세 API 호출 시 전달하는 컨텍스트 |
+| `contextInfo.exposedDeliveryType` | 노출 배달 유형 (상세 API 호출 시 사용) |
+
+### `scripts_api/shop_detail_api.py`
+
+목록 API 응답의 가게 dict를 그대로 받아 상세 정보를 조회합니다.
+
+```python
+from scripts_api.shop_detail_api import get_shop_detail
+
+detail = get_shop_detail(shop, sort=SortOption.DEFAULT)
+```
+
+목록→상세 전달 필드: `shopInfo.shopNumber`(경로), `adInfo.campaignId`, `contextInfo.bypassData`, `contextInfo.exposedDeliveryType`, `shopInfo.menus[0].menuId`
+
+---
+
+## 테스트 케이스
+
+### `tests_api/test_shop.py` — 목록 API
+
+| 테스트 | fixture | 검증 내용 |
+|---|---|---|
+| `test_shop_list_not_empty` | `shops_default` | 가게 목록 1개 이상 반환 |
+| `test_sort_by_star_descending` | `shops_star` | 광고 제외 가게의 `averageStarScore` 내림차순 |
+| `test_sort_by_distance_ascending` | `shops_distance` | 광고 제외 가게의 거리 오름차순 |
+| `test_default_sort_contains_ads` | `shops_default` | 기본순에서 CPC 광고 가게 포함 여부 |
+
+### `tests_api/test_shop_detail.py` — 목록↔상세 교차 검증
+
+| 테스트 | 검증 내용 |
+|---|---|
+| `test_shop_name_matches_list` | 상세 `shopName` == 목록 `shopInfo.shopName` |
+| `test_minimum_order_price_matches_list` | 상세 `shopMinimumOrderPrice` == 목록 `shopInfo.minimumOrderPrice` |
+| `test_shop_is_possible_to_order` | 상세 `isPossibleToOrder == True` |
+| `test_review_rating_matches_list` | 상세 `reviewRatingText` == 목록 `averageStarScore` |
+
+---
+
+## 실행 방법
+
+```bash
+# 전체 API 테스트 (API 호출 + fixture 저장 + 검증)
+pytest tests_api/ -v -s
+
+# 목록 테스트만
+pytest tests_api/test_shop.py -v -s
+
+# 상세 교차 검증만
+pytest tests_api/test_shop_detail.py -v -s
+```
+
+---
+
+## 예외 사항
+
+### 주문순 정렬 (`SORT__ORDER`) 검증 불가
+
+응답의 `logInfo.orderCount` 필드가 항상 `0`을 반환한다.
+비로그인 환경에서는 실제 주문 수를 노출하지 않는 것으로 보이며,
+`latestReviewCount`를 proxy로 사용해도 주문 수와 1:1 대응이 되지 않아 정렬 순서 자동 검증이 불가능하다.
+
+**결론**: `SORT__ORDER` 정렬 정확도는 자동화 테스트에서 제외, 수동 확인으로 대체한다.
+
+### 영업 중 여부 (`shopStatus.inOperation`) 검증 불가
+
+응답의 `shopStatus.inOperation` 필드는 존재하지만, 요청 파라미터가 이미 영업 중인 가게만 반환하도록 서버에서 필터링하는지 확인할 수 없다.
+`inOperation: False`인 케이스를 재현할 방법이 없어 의미 있는 assert를 작성하기 어렵다.
+
+**결론**: 영업 중 여부 검증은 자동화 테스트에서 제외, 수동 확인으로 대체한다.
+
+### 찜순 정렬 (`SORT__FAVORITE`) 검증 불가
+
+찜 수에 해당하는 필드가 응답에 포함되어 있지 않아 정렬 순서 검증이 불가능하다.
+
+**결론**: `SORT__FAVORITE` 정렬 정확도는 자동화 테스트에서 제외, 수동 확인으로 대체한다.

@@ -38,15 +38,19 @@ GET https://shop-detail-api.baemin.com/api/v2/shops/{id}/detail # 상세
 pytest tests_api/
   ├─ test_shop.py
   │    └─ conftest.py fixture (session scope)
-  │         ├─ 목록 API 호출 (기본/별점/거리/찜순)
-  │         ├─ assert 검증
-  │         └─ tests_api/fixtures/*.json 저장
+  │         ├─ 목록 API 호출 → shops_default.json / shops_star.json / shops_distance.json / shops_favorite.json 저장
+  │         ├─ assert: 가게 수 0 < count <= 30
+  │         ├─ assert: 별점순 내림차순 (광고 제외)
+  │         ├─ assert: 거리순 오름차순 (광고 제외)
+  │         └─ print: 광고 가게 현황 출력 (assert 없음 — 시간대별 변동)
   └─ test_shop_detail.py
        └─ shop_details fixture (session scope)
-            ├─ shops_default.json 로드 (test_shop.py 실행 후 생성)
-            ├─ 상세 API 순차 호출 (상위 10개, 1초 딜레이)
-            ├─ assert 검증 (목록↔상세 교차)
-            └─ tests_api/fixtures/shop_details.json 저장
+            ├─ shops_default.json 로드
+            ├─ 상세 API 순차 호출 (상위 10개, 1초 딜레이) → shop_details.json 저장
+            ├─ assert: 가게명 일치
+            ├─ assert: 최소주문금액 일치
+            ├─ assert: 주문 가능 상태
+            └─ assert: 별점 일치
 ```
 
 테스트 실행 시 API를 직접 호출하고 응답을 `tests_api/fixtures/`에 저장합니다.

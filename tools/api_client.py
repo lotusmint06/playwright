@@ -5,8 +5,18 @@
 직접 실행 시 카테고리 목록을 출력한다.
 
     python tools/api_client.py
+
+환경변수 설정 (.env 또는 export):
+    BAEMIN_USER_BAEDAL   : User-Baedal 헤더값
+    BAEMIN_DVC_UNIQ_ID   : 디바이스 고유 ID (dvc_uniq_id, idfv)
+    BAEMIN_DVCID         : 디바이스 ID (dvcid)
+    BAEMIN_ADJUST_ID     : Adjust 트래킹 ID
+    BAEMIN_PERSEUS_CLIENT_ID : Perseus 클라이언트 ID
+    BAEMIN_PERSEUS_SESSION_ID: Perseus 세션 ID
+    BAEMIN_SESSION_ID    : 세션 ID
 """
 
+import os
 import requests
 
 
@@ -16,7 +26,7 @@ _HEADERS = {
     "Host": "gateway-api.baemin.com",
     "Accept": "*/*",
     "Accept-Language": "ko",
-    "User-Baedal": "xyzcdL4qorK8KB9W6BnEyh4GqbB8XH5vXNVbbhAOLi+c5s9eOVef6nWDKGgDw8rwyN73jaNbZVKdBtsOU2EP82O+IhcsXmhC7MtGx5ANfmGJAK49O9DCmnQaBudtXOsATLWLxkO044WX79KVPKR0mfd/Z3fWWwiO+XIOnuqgGnvMLAUUKG3lB3wbCz5lHeNJBvgjo4d+39lALoeBC9VaCw==",
+    "User-Baedal": os.getenv("BAEMIN_USER_BAEDAL", ""),
     "Carrier": "6553565535",
     "User-Agent": "iph1_16.0.1",
     "Authorization": "Bearer guest",
@@ -25,22 +35,22 @@ _HEADERS = {
 _PARAMS = {
     "actionTrackingKey": "Organic",
     "adid": "00000000-0000-0000-0000-000000000000",
-    "adjustId": "81cde4547f67a7e7fbd2905205dcb343",
+    "adjustId": os.getenv("BAEMIN_ADJUST_ID", ""),
     "appver": "16.0.1",
     "carrier": "6553565535",
     "deviceModel": "iPhone17,2",
     "dongCode": "11530112",
-    "dvc_uniq_id": "4AF4F9AD-10E7-41C8-9E59-247EE62540D0",
-    "dvcid": "OPUD85EAE52B-D7C5-47CE-B2B7-2AF3C8A6D6E7",
-    "idfv": "4AF4F9AD-10E7-41C8-9E59-247EE62540D0",
+    "dvc_uniq_id": os.getenv("BAEMIN_DVC_UNIQ_ID", ""),
+    "dvcid": os.getenv("BAEMIN_DVCID", ""),
+    "idfv": os.getenv("BAEMIN_DVC_UNIQ_ID", ""),
     "lat": "37.48198901",
     "lng": "126.82225986",
     "memberNo": "000000000000",
     "oscd": "1",
     "osver": "18.1",
-    "perseusClientId": "1775480710022.0293758061.cpbekadglt",
-    "perseusSessionId": "1775480710023.1465161733.oxockigsxt",
-    "sessionid": "f3f83ba609823404d10e8a574ace1708",
+    "perseusClientId": os.getenv("BAEMIN_PERSEUS_CLIENT_ID", ""),
+    "perseusSessionId": os.getenv("BAEMIN_PERSEUS_SESSION_ID", ""),
+    "sessionid": os.getenv("BAEMIN_SESSION_ID", ""),
     "site": "7jWXRELC2e",
     "zipCode": "08362",
 }

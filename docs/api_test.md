@@ -83,16 +83,16 @@ tests_api/
 `.env` 파일에 아래 항목을 설정합니다. (`.env.example` 참고)
 
 
-| 환경변수                        | 설명                       |
-| --------------------------- | ------------------------ |
-| `BAEMIN_USER_BAEDAL`        | User-Baedal 인증 헤더        |
-| `BAEMIN_DVC_UNIQ_ID`        | 디바이스 고유 ID               |
-| `BAEMIN_DVCID`              | 디바이스 ID                  |
-| `BAEMIN_ADJUST_ID`          | Adjust 트래킹 ID            |
-| `BAEMIN_PERSEUS_CLIENT_ID`  | Perseus 클라이언트 ID         |
-| `BAEMIN_PERSEUS_SESSION_ID` | Perseus 세션 ID            |
-| `BAEMIN_SESSION_ID`         | 세션 ID                    |
-| `BAEMIN_COOKIE`             | Cloudflare `__cf_bm` 쿠키값 |
+| 환경변수                        |
+| --------------------------- |
+| `BAEMIN_USER_BAEDAL`        |
+| `BAEMIN_DVC_UNIQ_ID`        |
+| `BAEMIN_DVCID`              |
+| `BAEMIN_ADJUST_ID`          |
+| `BAEMIN_PERSEUS_CLIENT_ID`  |
+| `BAEMIN_PERSEUS_SESSION_ID` |
+| `BAEMIN_SESSION_ID`         |
+| `BAEMIN_COOKIE`             |
 
 
 > `__cf_bm` 쿠키는 유효시간이 짧으므로 만료 시 Postman 등에서 최신값을 복사해서 `.env`에 업데이트한다.

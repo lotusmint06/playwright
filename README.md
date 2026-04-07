@@ -34,6 +34,16 @@ Gateway API 응답에서 카테고리 목록을 동적으로 조회해 locator v
 모든 selector를 `locators.json` / `app_locators.json`에서 관리합니다.  
 테스트 시작 시 정합성을 자동 검증하고, healing된 항목은 `healed: true` 플래그로 추적합니다.
 
+**5. Locator 사전 생성 도구**  
+테스트 실패를 기다리지 않고, URL과 요소 설명만으로 selector를 사전에 생성해 `locators.json`에 자동 등록합니다. (웹 전용)
+
+```bash
+python tools/generate_locator.py \
+    --url https://example.com/login \
+    --section login --key email_input \
+    --description "이메일 입력 필드"
+```
+
 ---
 
 ## 빠른 시작

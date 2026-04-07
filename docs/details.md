@@ -101,8 +101,9 @@ project/
 │   ├── main_page.py         # 메인화면 Page Object
 │   └── food_list_page.py    # 음식배달 목록 Page Object
 ├── tools/                   # 개발/검증 도구 (pytest 수집 대상 아님)
-│   ├── check_context.py     # DOM 컨텍스트 추출 및 OpenAI 후보 품질 검증
-│   └── api_client.py        # 배민 Gateway API 클라이언트 (카테고리 목록 조회)
+│   ├── check_context.py       # DOM 컨텍스트 추출 및 OpenAI 후보 품질 검증
+│   ├── api_client.py          # 배민 Gateway API 클라이언트 (카테고리 목록 조회)
+│   └── generate_locator.py    # URL + 요소 설명 → locators.json 자동 등록 (웹 전용)
 ├── app_locators.json        # 앱 selector 중앙 관리 (primary/fallback/healed)
 ├── app_self_healing.py      # OpenAI(gpt-4o-mini) 기반 앱 self-healing (XML)
 ├── .env.example             # 환경변수 템플릿
@@ -273,6 +274,7 @@ Teams webhook 설정 시 테스트 완료 후 결과를 자동 전송합니다 (
 | 1 | DOM Context 최적화 | ✅ 완료 | 토큰 72% 절감 |
 | 2 | Appium 확장 | ✅ 완료 | Android/iOS 앱 테스트 지원 |
 | 3 | API 기반 테스트 데이터 | ✅ 완료 | Gateway API 응답으로 동적 테스트 데이터 생성 |
-| 4 | xdist race condition 대응 | 미완 | 병렬 실행 시 locators.json 동시 쓰기 문제 (filelock) |
-| 5 | Teams heal 알림 | 미완 | healing 발생 시 Teams에 변경 내역 전송 |
-| 6 | 테스트 커버리지 확대 | 미완 | 소셜 로그인, 에러 메시지 검증 등 |
+| 4 | Locator 사전 생성 도구 | ✅ 완료 | URL + 요소 설명 → selector 자동 생성 → locators.json 등록 (웹 전용) |
+| 5 | xdist race condition 대응 | 미완 | 병렬 실행 시 locators.json 동시 쓰기 문제 (filelock) |
+| 6 | Teams heal 알림 | 미완 | healing 발생 시 Teams에 변경 내역 전송 |
+| 7 | 테스트 커버리지 확대 | 미완 | 소셜 로그인, 에러 메시지 검증 등 |

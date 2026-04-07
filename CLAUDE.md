@@ -17,7 +17,9 @@ project/
 ├── pytest.ini               # 기본 pytest 옵션
 ├── requirements.txt
 ├── tests/                   # 웹 테스트 — pytest assertion만 작성 (Playwright 문법 사용 금지)
-│   └── conftest.py          # Playwright fixture: page (function), session_page (session)
+│   ├── conftest.py          # Playwright fixture: page (function), session_page (session)
+│   ├── test_home.py         # 메인화면 테스트 (prod 전용)
+│   └── test_login.py
 ├── tests_app/               # 앱 테스트 — pytest assertion만 작성
 │   ├── conftest.py          # Appium fixture: 앱 종료/실행, 스플래시 대기, app_driver
 │   ├── test_connection.py   # 디바이스 연결 및 앱 실행 확인 테스트
@@ -25,6 +27,7 @@ project/
 │   └── test_categories.py   # API 기반 카테고리 탭 테스트
 ├── scripts/                 # 웹 Page Object (BasePage 상속)
 │   ├── base_page.py         # 웹 공통 액션 + self-healing 연동
+│   ├── home_page.py         # 메인화면 Page Object
 │   └── login_page.py
 ├── scripts_app/             # 앱 Page Object (BaseAppPage 상속)
 │   ├── base_app_page.py     # Appium 공통 액션 + app-healing 연동 + stale retry

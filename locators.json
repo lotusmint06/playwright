@@ -113,5 +113,13 @@
       "previous": null,
       "healed": false
     }
+  },
+  "home": {
+    "login_button": {
+      "primary": "role=link[name='로그인']",
+      "fallback": null,
+      "previous": null,
+      "healed": false
+    }
   }
 }

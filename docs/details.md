@@ -87,6 +87,7 @@ project/
 ├── requirements.txt         # 버전 고정
 ├── tests/                   # 웹 테스트 케이스 (pytest assertion만, Playwright 문법 없음)
 │   ├── conftest.py          # Playwright fixture: page (function), session_page (session)
+│   ├── test_home.py         # 메인화면 테스트 (prod 전용)
 │   └── test_login.py
 ├── tests_app/               # 앱 테스트 케이스 (Appium)
 │   ├── conftest.py          # Appium fixture: 앱 종료/실행, 스플래시 대기, app_driver
@@ -95,6 +96,7 @@ project/
 │   └── test_categories.py   # API 기반 카테고리 탭 테스트
 ├── scripts/                 # 웹 Page Object (Playwright 액션 담당)
 │   ├── base_page.py         # 웹 공통 액션 + self-healing 연동
+│   ├── home_page.py         # 메인화면 Page Object
 │   └── login_page.py
 ├── scripts_app/             # 앱 Page Object (Appium 액션 담당)
 │   ├── base_app_page.py     # Appium 공통 액션 + app-healing 연동 + stale retry

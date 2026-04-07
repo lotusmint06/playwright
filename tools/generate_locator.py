@@ -23,62 +23,130 @@ import sys
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
 
+# 프로젝트 루트를 경로에 추가해 self_healing 모듈 import 가능하게 함
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 load_dotenv()
+
+from self_healing import _get_element_context, client  # noqa: E402
 
 LOCATORS_FILE = "locators.json"
 
 
-def _get_page_context(page) -> str:
-    """DOM에서 selector 생성에 필요한 HTML 추출 및 정제."""
+def _get_page_context(page, description: str = "") -> str:
+    """description 키워드로 관련 요소를 먼저 탐색하고, 없으면 _get_element_context 폴백."""
+    if not description:
+        return _get_element_context(page)
+
+    # 설명의 각 단어를 순서대로 시도해 첫 번째 매칭 키워드 사용
+    keyword = None
+    for word in description.split():
+        if len(word) >= 2:  # 1글자 단어(조사 등) 스킵
+            keyword = word
+            break
+    if not keyword:
+        return _get_element_context(page)
+
+    # self_healing._get_element_context의 _CLEAN_JS와 동일한 정제 로직
     _CLEAN_JS = """
         node => {
             const clone = node.cloneNode(true);
             clone.querySelectorAll('script, style, svg, iframe').forEach(n => n.remove());
             [clone, ...clone.querySelectorAll('*')].forEach(el => {
                 el.removeAttribute('style');
-                ['tabindex', 'aria-hidden', 'aria-describedby'].forEach(a => el.removeAttribute(a));
+                ['tabindex', 'aria-hidden', 'aria-describedby'].forEach(attr => {
+                    el.removeAttribute(attr);
+                });
                 Array.from(el.attributes).forEach(attr => {
-                    if (attr.name.startsWith('on') || /^data-v-[a-f0-9]+$/.test(attr.name)) {
+                    if (
+                        attr.name.startsWith('on') ||
+                        /^data-v-[a-f0-9]+$/.test(attr.name)
+                    ) {
                         el.removeAttribute(attr.name);
                     }
                 });
+                const keepFullText = ['button', 'a', 'label', 'option'];
+                if (!keepFullText.includes(el.tagName.toLowerCase())) {
+                    el.childNodes.forEach(child => {
+                        if (child.nodeType === Node.TEXT_NODE) {
+                            const trimmed = child.textContent.trim();
+                            if (trimmed.length > 30) {
+                                child.textContent = ' ' + trimmed.substring(0, 30) + '… ';
+                            }
+                        }
+                    });
+                }
             });
             return clone.outerHTML;
         }
     """
-    context = page.evaluate(f"""
-        () => {{
-            const containers = ['form', 'main', '[role=main]', 'body'];
-            for (const sel of containers) {{
-                const el = document.querySelector(sel);
-                if (el) return ({_CLEAN_JS})(el);
+
+    focused = page.evaluate(f"""
+        (keyword) => {{
+            const clean = {_CLEAN_JS};
+            const candidates = document.querySelectorAll('a, button, input, [role=button], [role=link]');
+            const matches = [];
+            for (const el of candidates) {{
+                const text = (el.textContent || '').trim();
+                const aria = el.getAttribute('aria-label') || '';
+                const placeholder = el.getAttribute('placeholder') || '';
+                const title = el.getAttribute('title') || '';
+                if (text.includes(keyword) || aria.includes(keyword)
+                        || placeholder.includes(keyword) || title.includes(keyword)) {{
+                    const elHtml = clean(el);
+                    let parent = el;
+                    for (let i = 0; i < 3; i++) {{
+                        if (parent.parentElement) parent = parent.parentElement;
+                    }}
+                    const parentHtml = clean(parent);
+                    matches.push('[대상 요소]\\n' + elHtml + '\\n\\n[주변 구조]\\n' + parentHtml);
+                }}
             }}
-            return ({_CLEAN_JS})(document.body);
+            return matches.slice(0, 3).join('\\n\\n---\\n\\n') || null;
         }}
-    """)
-    return context[:4000]
+    """, keyword)
+
+    if focused:
+        print(f"[Context] 키워드 '{keyword}' 매칭 요소 추출 완료")
+        return focused[:4000]
+
+    print(f"[Context] 키워드 '{keyword}' 매칭 없음 — form/main/body로 전환")
+    return _get_element_context(page)
 
 
 def _ask_openai(description: str, context: str) -> list[str]:
-    """OpenAI에 selector 후보 3개 요청."""
-    from openai import OpenAI
-    client = OpenAI()
-
-    prompt = (
-        f"찾으려는 요소: {description}\n\n"
-        f"아래 DOM에서 해당 요소에 적합한 안정적인 Playwright selector를 3개 제안해주세요.\n"
-        f"반드시 JSON 형식으로만 응답하세요: {{\"selectors\": [\"...\", \"...\", \"...\"]}}\n\n"
-        f"{context}"
-    )
-
+    """self_healing.py의 client와 동일한 프롬프트 구조로 selector 후보 3개 요청."""
     res = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a Playwright test automation expert. Respond only with valid JSON.",
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"찾으려는 요소: {description}\n\n"
+                    f"아래 DOM에서 [대상 요소]가 바로 찾으려는 요소입니다.\n"
+                    f"[대상 요소]의 selector만 제안하세요. 다른 요소의 selector는 절대 포함하지 마세요.\n\n"
+                    f"{context}\n\n"
+                    "위 [대상 요소]에 적합한 안정적인 Playwright selector를 반드시 3개 찾아 제안해주세요. 3개 미만은 허용하지 않습니다.\n"
+                    "우선순위: #id > role=link[name=...] > role=button[name=...] > role=textbox[name=...] > text=텍스트 > css(정적 class) 순으로 우선합니다.\n"
+                    "<a> 태그는 role=link[name=...] 또는 text=텍스트 로 표현하세요. role=button 으로 표현하지 마세요.\n"
+                    "#id가 존재하면 반드시 첫 번째 후보로 제안하세요.\n"
+                    "data-v-*, data-v6-, data-* 등 빌드 툴이 자동 생성하는 속성은 절대 사용하지 마세요.\n"
+                    "disable, active, focus, hover, selected, checked 등 상태에 따라 동적으로 변하는 class는 포함하지 마세요.\n"
+                    ":has-text() 구문은 사용하지 마세요. 대신 text=텍스트 또는 role=link[name='텍스트'] 를 사용하세요.\n"
+                    "selector 문법: role=link[name='텍스트'], text=텍스트, #id, .static-class (css= prefix 사용 금지)\n"
+                    '응답 형식: {"selectors": ["...", "...", "..."]}'
+                ),
+            },
+        ],
+        response_format={"type": "json_object"},
         temperature=0,
     )
 
-    raw = res.choices[0].message.content.strip()
-    data = json.loads(raw)
+    data = json.loads(res.choices[0].message.content)
     return data.get("selectors", [])
 
 
@@ -142,10 +210,10 @@ def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto(args.url, wait_until="networkidle")
+        page.goto(args.url)
 
         print("[2/4] DOM 컨텍스트 추출 중...")
-        context = _get_page_context(page)
+        context = _get_page_context(page, args.description)
 
         print("[3/4] OpenAI에 selector 후보 요청 중...")
         candidates = _ask_openai(args.description, context)

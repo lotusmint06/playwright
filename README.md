@@ -104,9 +104,19 @@ project/
 │   └── login_page.py
 ├── scripts_app/             # 앱 Page Object (Appium 액션 담당)
 │   ├── base_app_page.py     # Appium 공통 액션 + app-healing 연동 + stale retry
-│   └── main_page.py         # 메인화면 Page Object
+│   ├── main_page.py         # 메인화면 Page Object
+│   └── food_list_page.py    # 음식배달 목록 Page Object
+├── tests_app/
+│   ├── conftest.py          # Appium fixture
+│   ├── test_connection.py   # 디바이스 연결 및 앱 실행 확인
+│   ├── test_main.py         # 앱 메인화면 테스트
+│   └── test_categories.py   # API 기반 카테고리 탭 테스트
+├── tools/                   # 개발/검증 도구 (pytest 수집 대상 아님)
+│   ├── check_context.py     # DOM 컨텍스트 추출 및 OpenAI 후보 품질 검증
+│   └── api_client.py        # 배민 Gateway API 클라이언트 (카테고리 목록 조회)
 ├── app_locators.json        # 앱 selector 중앙 관리 (primary/fallback/healed)
 ├── app_self_healing.py      # OpenAI(gpt-4o-mini) 기반 앱 self-healing (XML)
+├── .env.example             # 환경변수 템플릿
 └── appium.config.json       # Appium 서버 설정
 ```
 
@@ -502,4 +512,5 @@ def test_search_returns_results(page):
 | 2 | xdist race condition 대응 | 미완 | 병렬 실행 시 locators.json 동시 쓰기 문제 해결 (filelock) |
 | 3 | Teams heal 알림 | 미완 | healing 발생 시 Teams에 요소명 + 변경 내역 별도 전송 |
 | 4 | Appium 확장 | ✅ 완료 | `BaseAppPage`, `app_self_healing.py`, `app_locators.json`, 스플래시 대기 — [docs/appium_setup.md](./docs/appium_setup.md) |
-| 5 | 테스트 커버리지 확대 | 미완 | 소셜 로그인, 아이디 저장 체크박스, 에러 메시지 텍스트 검증 등 |
+| 5 | API 기반 테스트 데이터 | ✅ 완료 | Gateway API 응답으로 카테고리 목록 동적 조회 → content-desc 자동 생성 → 순차 탭 테스트 (`tools/api_client.py`) |
+| 6 | 테스트 커버리지 확대 | 미완 | 소셜 로그인, 아이디 저장 체크박스, 에러 메시지 텍스트 검증 등 |
